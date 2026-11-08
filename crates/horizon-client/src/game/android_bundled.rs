@@ -104,6 +104,38 @@ mod smartf3_settings;
 #[path = "android_bundled/smartf3/smartf3_click.rs"]
 mod smartf3_click;
 
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/runtime.rs"]
+pub(super) mod official_appleskin;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/icons.rs"]
+pub(super) mod official_appleskin_icons;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/hunger.rs"]
+mod appleskin_hunger;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/bar.rs"]
+mod appleskin_bar;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/hud.rs"]
+mod appleskin_hud;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/list.rs"]
+mod appleskin_list;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/settings.rs"]
+mod appleskin_settings;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/appleskin/click.rs"]
+mod appleskin_click;
+
 pub(super) fn native_key(game: &mut Game<'_>, key: &str, pressed: bool) {
     let _ = (&game, &key, &pressed);
     #[cfg(target_os = "android")]
@@ -136,6 +168,7 @@ pub(super) fn native_mods(game: &mut Game<'_>, mods: &mut Vec<NativeMod>) {
         minimap_list::run(&mut *mods);
         recipes_list::run(&mut *mods);
         smartf3_list::run(&mut *mods);
+        appleskin_list::run(&mut *mods);
     }
 }
 
@@ -147,6 +180,7 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
         minimap_settings::run(&mut *game, mod_id, &mut *buttons);
         recipes_settings::run(&mut *game, mod_id, &mut *buttons);
         smartf3_settings::run(&mut *game, mod_id, &mut *buttons);
+        appleskin_settings::run(&mut *game, mod_id, &mut *buttons);
     }
 }
 
@@ -158,6 +192,7 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
         minimap_click::run(&mut *game, mod_id, button);
         recipes_click::run(&mut *game, mod_id, button);
         smartf3_click::run(&mut *game, mod_id, button);
+        appleskin_click::run(&mut *game, mod_id, button);
     }
 }
 
@@ -193,10 +228,19 @@ pub(super) fn native_command(game: &mut Game<'_>, command: &str, ran: &mut bool)
     }
 }
 
+pub(super) fn native_gui_layer_post(game: &Game<'_>, layer: &str, batch: &mut HudBatch) {
+    let _ = (&game, &layer, &batch);
+    #[cfg(target_os = "android")]
+    {
+        appleskin_hud::run(&*game, layer, &mut *batch);
+    }
+}
+
 #[cfg(target_os = "android")]
 pub(super) fn reset() {
     official_zoom::reset();
     official_minimap::reset();
     official_recipes::set_viewer(None);
     smartf3_native::reset();
+    appleskin_bar::reset();
 }

@@ -204,7 +204,8 @@ mod native_falling;
 mod native_hooks;
 #[cfg(target_os = "android")]
 use android_bundled::{
-    official_minimap, official_recipes, official_recipes_glue, official_zoom, smartf3,
+    official_appleskin, official_appleskin_icons, official_minimap, official_recipes,
+    official_recipes_glue, official_zoom, smartf3,
 };
 mod native_lifecycle;
 mod native_menus;
@@ -8321,6 +8322,8 @@ impl Game<'_> {
                 // A fresh borrow: the hook ran with all of `self`.
                 let atlas = &self.gui.atlas;
                 hud_layout::paint(&mut batch, atlas, &draws);
+                // AppleSkin: saturation/exhaustion overlay above the health bar.
+                self.native_gui_layer_post("minecraft:player_health", &mut batch);
                 bar_height = self
                     .health_hud
                     .left_height
