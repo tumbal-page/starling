@@ -26,5 +26,12 @@
     "repository": "https://github.com/d3grando/smartf3",
     "license": "MIT",
     "changes": "Static Android adapters; helper visibility/names adapted; reset profile state. SmartF3 preserves the Android F3 scale and code-of-conduct screen."
+  },
+  {
+    "id": "appleskin",
+    "commit": "02c8607ee8ebd216f2f535c1eb7b62b572830df2",
+    "repository": "https://github.com/horizon-rust/horizon-mods",
+    "license": "MIT",
+    "changes": "Static Android adaptation. Added native_gui_layer_post hook (API 139) with a single call site after the player_health HUD layer. Methods exposed as pub for cross-module dispatch."
   }
 ]

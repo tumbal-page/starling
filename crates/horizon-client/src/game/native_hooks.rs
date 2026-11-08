@@ -1232,6 +1232,12 @@ impl Game<'_> {
     pub(super) fn native_hud(&mut self, batch: &mut HudBatch, corners: &mut Corners) {
         let _ = (batch, corners);
     }
+    /// After one of vanilla's HUD layers is drawn. AppleSkin draws its
+    /// saturation/exhaustion overlay above the `minecraft:player_health` layer.
+    pub(super) fn native_gui_layer_post(&self, layer: &str, batch: &mut HudBatch) {
+        super::android_bundled::native_gui_layer_post(self, layer, batch);
+        let _ = (layer, batch);
+    }
     /// A player right-clicks the entity `entity` (`Entity.getId`) of type
     /// `kind` (`minecraft:cow`) with `self.hand`, holding `stack` (none in an
     /// empty hand): where `Player.interactOn` starts, before the entity's own
