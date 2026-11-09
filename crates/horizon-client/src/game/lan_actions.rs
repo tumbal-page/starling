@@ -2783,6 +2783,10 @@ impl Game<'_> {
         command: &str,
         signed: Option<Vec<(String, horizon_client::lan::hub::chat::ChatMessage)>>,
     ) {
+        #[cfg(target_os = "android")]
+        if self.treefall_guest_command(host, conn, command) {
+            return;
+        }
         // The mods hear every command first, and may stop it.
         let mut canceled = false;
         let mut replies = Vec::new();

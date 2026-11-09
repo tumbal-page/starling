@@ -204,8 +204,8 @@ mod native_falling;
 mod native_hooks;
 #[cfg(target_os = "android")]
 use android_bundled::{
-    official_appleskin, official_appleskin_icons, official_minimap, official_recipes,
-    official_recipes_glue, official_zoom, smartf3,
+    jei, jei_glue, official_appleskin, official_appleskin_icons, official_minimap,
+    official_recipes, official_recipes_glue, official_zoom, smartf3, treefall,
 };
 mod native_lifecycle;
 mod native_menus;
@@ -3698,6 +3698,10 @@ impl Game<'_> {
     }
     /// Block.popResource
     fn pop_resource(&mut self, pos: [i32; 3], mut stack: ItemStack) {
+        #[cfg(target_os = "android")]
+        if self.treefall_pop_at_stump(pos, &stack) {
+            return;
+        }
         self.pending.attach(pos, &mut stack);
         // Block.popResource: Mth.nextDouble offsets from the level random; the
         // motion is `new ItemEntity(..)`'s own, from the item's random.
@@ -5428,6 +5432,10 @@ impl Game<'_> {
         self.stats.add("used", &stack.item, 1);
     }
     fn break_block(&mut self, pos: [i32; 3]) -> Result<()> {
+        #[cfg(target_os = "android")]
+        if let Some(result) = self.treefall_break_block(pos) {
+            return result;
+        }
         self.lan_break_pos = Some(pos);
         let broken = self.with_player_actor(|game| game.break_block_as_player(pos));
         self.lan_break_pos = None;
