@@ -306,11 +306,11 @@ pub(super) fn native_gui_layer_post(game: &Game<'_>, layer: &str, batch: &mut Hu
     }
 }
 
-pub(super) fn native_tick(game: &Game<'_>) {
+pub(super) fn native_tick(game: &mut Game<'_>) {
     let _ = &game;
     #[cfg(target_os = "android")]
     {
-        treefall_tick::treefall_tick(&*game);
+        treefall_tick::treefall_tick(&mut *game);
     }
 }
 

@@ -107,7 +107,7 @@ struct View<'g, 'r>(&'g Game<'r>);
 impl Blocks for View<'_, '_> {
     fn block(&self, p: Position) -> Option<Block> {
         let game = self.0;
-        if p[1] < game.dim.min_y() || p[1] > game.dim.max_y() || !game.world.loaded(p[0], p[2]) {
+        if p[1] < game.world.bottom_y() || p[1] >= game.world.top_y() || !game.world.loaded(p[0], p[2]) {
             return None;
         }
         let state = game.world.block(p[0], p[1], p[2]);
@@ -324,7 +324,7 @@ impl Game<'_> {
     /// break, the clicked block included, happened here), None to let the
     /// game (and lower-priority hooks) break the block as usual. Only the
     /// game that owns the world fells (not a window joined to a server).
-    pub(super) fn treefall_break_block(&mut self, pos: Position) -> Option<Result<()>> {
+    pub(in crate::game) fn treefall_break_block(&mut self, pos: Position) -> Option<Result<()>> {
         if !on(self) || self.remote.is_some() {
             return None;
         }
@@ -342,7 +342,7 @@ impl Game<'_> {
     /// log's progress per tick divided by the tree's slowdown; None leaves the
     /// game's own value. Asked by the game that owns the world and, in single
     /// player, by the window as it mines too, so both cut as slowly.
-    pub(super) fn treefall_destroy_progress(&self, pos: Position) -> Option<f32> {
+    pub(in crate::game) fn treefall_destroy_progress(&mut self, pos: Position) -> Option<f32> {
         if MEASURING.get() || !on(self) {
             return None;
         }
@@ -384,7 +384,7 @@ impl Game<'_> {
     /// `Game::pop_resource`'s HEAD (`dropsAtStump`): while a tree is felled,
     /// pop `stack` at the stump instead; false leaves it where it is. Only a
     /// felling sets the stump, so this passes through when TreeFall is off.
-    pub(super) fn treefall_pop_at_stump(
+    pub(in crate::game) fn treefall_pop_at_stump(
         &mut self,
         pos: Position,
         stack: &horizon_client::items::ItemStack,
@@ -448,9 +448,9 @@ impl Game<'_> {
     /// `lan_actions::Game::guest_command`'s HEAD: queue a LAN guest's
     /// `/treefall` so it runs as that guest (their own on/off state), whatever
     /// their permission level; true when it was one.
-    pub(super) fn treefall_guest_command(
+    pub(in crate::game) fn treefall_guest_command(
         &mut self,
-        host: &mut super::lan::LanHost,
+        host: &mut crate::game::lan::LanHost,
         conn: u32,
         command: &str,
     ) -> bool {
@@ -458,7 +458,7 @@ impl Game<'_> {
             return false;
         }
         if let Some(permission) = host.hub.guest(conn).map(|g| g.permission) {
-            host.commands.push(super::lan_actions::GuestCommand {
+            host.commands.push(crate::game::lan_actions::GuestCommand {
                 conn,
                 command: command.trim().trim_start_matches('/').to_owned(),
                 permission,
