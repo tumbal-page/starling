@@ -33,5 +33,19 @@
     "repository": "https://github.com/horizon-rust/horizon-mods",
     "license": "MIT",
     "changes": "Static Android adaptation. Added native_gui_layer_post hook (API 139) with a single call site after the player_health HUD layer. Methods exposed as pub for cross-module dispatch."
+  },
+  {
+    "id": "jei",
+    "commit": "1da354b67a509812c4141b67de2affd6de65c342",
+    "repository": "https://github.com/horizon-rust/horizon-mods",
+    "license": "MIT",
+    "changes": "Static Android adaptation. Uses existing native hook dispatch points only (frame, mods, settings, settings_click, command, panel_event)."
+  },
+  {
+    "id": "treefall",
+    "commit": "142388e1c136e622652ec7505af15d8ad195e041",
+    "repository": "https://github.com/horizon-rust/horizon-mods",
+    "license": "MIT",
+    "changes": "Static Android adaptation. Added native_tick dispatch. Pinned injections into break_block (game.rs), pop_resource (game.rs), destroy_progress (hand.rs), guest_command (lan_actions.rs)."
   }
 ]

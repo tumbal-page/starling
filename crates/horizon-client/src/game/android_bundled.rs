@@ -136,6 +136,66 @@ mod appleskin_settings;
 #[path = "android_bundled/appleskin/click.rs"]
 mod appleskin_click;
 
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/runtime.rs"]
+pub(super) mod jei;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/glue.rs"]
+pub(super) mod jei_glue;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/list.rs"]
+mod jei_list;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/settings.rs"]
+mod jei_settings;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/click.rs"]
+mod jei_click;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/command.rs"]
+mod jei_command;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/event.rs"]
+mod jei_event;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/jei/frame.rs"]
+mod jei_frame;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/treefall/runtime.rs"]
+pub(super) mod treefall;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/treefall/native.rs"]
+mod treefall_native;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/treefall/list.rs"]
+mod treefall_list;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/treefall/settings.rs"]
+mod treefall_settings;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/treefall/click.rs"]
+mod treefall_click;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/treefall/command.rs"]
+mod treefall_command;
+
+#[cfg(target_os = "android")]
+#[path = "android_bundled/treefall/tick.rs"]
+mod treefall_tick;
+
 pub(super) fn native_key(game: &mut Game<'_>, key: &str, pressed: bool) {
     let _ = (&game, &key, &pressed);
     #[cfg(target_os = "android")]
@@ -169,6 +229,8 @@ pub(super) fn native_mods(game: &mut Game<'_>, mods: &mut Vec<NativeMod>) {
         recipes_list::run(&mut *mods);
         smartf3_list::run(&mut *mods);
         appleskin_list::run(&mut *mods);
+        jei_list::jei_listed(&mut *mods);
+        treefall_list::treefall_listed(&mut *mods);
     }
 }
 
@@ -181,6 +243,8 @@ pub(super) fn native_settings(game: &mut Game<'_>, mod_id: &str, buttons: &mut V
         recipes_settings::run(&mut *game, mod_id, &mut *buttons);
         smartf3_settings::run(&mut *game, mod_id, &mut *buttons);
         appleskin_settings::run(&mut *game, mod_id, &mut *buttons);
+        jei_settings::jei_page(&mut *game, mod_id, &mut *buttons);
+        treefall_settings::treefall_page(&mut *game, mod_id, &mut *buttons);
     }
 }
 
@@ -193,6 +257,8 @@ pub(super) fn native_settings_click(game: &mut Game<'_>, mod_id: &str, button: u
         recipes_click::run(&mut *game, mod_id, button);
         smartf3_click::run(&mut *game, mod_id, button);
         appleskin_click::run(&mut *game, mod_id, button);
+        jei_click::jei_click(&mut *game, mod_id, button);
+        treefall_click::treefall_click(&mut *game, mod_id, button);
     }
 }
 
@@ -209,6 +275,7 @@ pub(super) fn native_frame(game: &mut Game<'_>, elapsed: Duration) {
     #[cfg(target_os = "android")]
     {
         recipes_frame::run(&mut *game);
+        jei_frame::jei_frame(&mut *game);
     }
 }
 
@@ -217,6 +284,7 @@ pub(super) fn native_panel_event(game: &mut Game<'_>, mod_id: &str, event: &Nati
     #[cfg(target_os = "android")]
     {
         recipes_event::run(&mut *game, mod_id, event);
+        jei_event::jei_event(&mut *game, mod_id, event);
     }
 }
 
@@ -225,6 +293,8 @@ pub(super) fn native_command(game: &mut Game<'_>, command: &str, ran: &mut bool)
     #[cfg(target_os = "android")]
     {
         smartf3_command::run(&mut *game, command, &mut *ran);
+        jei_command::jei_command(&mut *game, command, &mut *ran);
+        treefall_command::treefall_command(&mut *game, command, &mut *ran);
     }
 }
 
@@ -233,6 +303,14 @@ pub(super) fn native_gui_layer_post(game: &Game<'_>, layer: &str, batch: &mut Hu
     #[cfg(target_os = "android")]
     {
         appleskin_hud::run(&*game, layer, &mut *batch);
+    }
+}
+
+pub(super) fn native_tick(game: &mut Game<'_>) {
+    let _ = &game;
+    #[cfg(target_os = "android")]
+    {
+        treefall_tick::treefall_tick(&mut *game);
     }
 }
 

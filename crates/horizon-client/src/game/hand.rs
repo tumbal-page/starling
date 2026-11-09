@@ -286,6 +286,15 @@ impl Game<'_> {
     }
     /// `BlockBehaviour.getDestroyProgress` with `Player.getDestroySpeed`.
     pub(super) fn destroy_progress(&mut self, pos: [i32; 3]) -> f32 {
+        let base = self.destroy_progress_inner(pos);
+        #[cfg(target_os = "android")]
+        if let Some(scaled) = self.treefall_destroy_progress(pos) {
+            return scaled;
+        }
+        base
+    }
+
+    fn destroy_progress_inner(&mut self, pos: [i32; 3]) -> f32 {
         let block_break_speed = self.block_break_speed();
         let state = self.world.block(pos[0], pos[1], pos[2]);
         let facts = self.res.facts().get(state);
