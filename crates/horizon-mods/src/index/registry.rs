@@ -454,7 +454,9 @@ fn version_at(
         side: facts.side,
         capabilities: facts.capabilities,
         api_level: facts.api_level,
+        hooks: facts.hooks,
         game: v.game.clone(),
+        broken_on: Vec::new(),
         requires: facts.requires,
         file: File {
             url,
