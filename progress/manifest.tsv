@@ -1,0 +1,132 @@
+id	toml_entry	source_file	target_file	status	evidence	notes	kind
+create_port	runtime	runtime.rs	modules/runtime.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_chain	chain-drive	chain_runtime.rs	modules/chain_runtime.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_schematic_runtime	schematic-runtime	schematic_runtime.rs	modules/schematic_runtime.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_inventory	inventory	inventory.rs	modules/inventory.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_kinetic_runtime	kinetic_runtime	kinetic_runtime.rs	modules/kinetic_runtime.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_sounds	sounds	sounds.rs	modules/sounds.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_interactions	interactions	interactions.rs	modules/interactions.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_motor_control	motor-control	motor_control.rs	modules/motor_control.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_motor_value_ui	motor-value-ui	motor_value_ui.rs	modules/motor_value_ui.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_motor_value_world	motor-value-world	motor_value_world.rs	modules/motor_value_world.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_belt	belt	belt.rs	modules/belt.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_belt_press	belt-press	belt_press.rs	modules/belt_press.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_millstone	millstone	millstone.rs	modules/millstone.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_basin	basin	basin.rs	modules/basin.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_basin_recipes	basin-recipes	basin_recipes.rs	modules/basin_recipes.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_press_basin	press-basin	press_basin.rs	modules/press_basin.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_mixer	mixer	mixer.rs	modules/mixer.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_fan	fan	fan.rs	modules/fan.rs	DONE_UNVERIFIED	file exists & non-empty	wired in android_bundled.rs + game.rs re-exports	module
+create_port_fan_entities	fan-entities	fan_entities.rs	modules/fan_entities.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_drill	drill	drill.rs	modules/drill.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_world_items	world-items	world_items.rs	modules/world_items.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_particles	particles	particles.rs	modules/particles.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_presentation	presentation	presentation.rs	modules/presentation.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_goggles	goggles	goggles.rs	modules/goggles.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_instruments	instruments	instruments.rs	modules/instruments.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_generators	generators	generators.rs	modules/generators.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_placement	placement-runtime	placement_runtime.rs	modules/placement_runtime.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_motor_reach	motor-configuration-reach	motor_reach.rs	modules/motor_reach.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_nativeaudio	native-audio	nativeaudio.rs	modules/nativeaudio.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_press_client	press-client	press_client.rs	modules/press_client.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_fluid_codec	fluid-codec	fluid_codec.rs	modules/fluid_codec.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_burner	burner	burner.rs	modules/burner.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_burner_presentation	burner-presentation	burner_presentation.rs	modules/burner_presentation.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_basin_tooltip	basin-tooltip	basin_tooltip.rs	modules/basin_tooltip.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_burner_interactions	burner-interactions	burner_interactions.rs	modules/burner_interactions.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_burner_prediction	burner-prediction	burner_prediction.rs	modules/burner_prediction.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_burner_sync	burner-sync	burner_sync.rs	modules/burner_sync.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_burner_sync_protocol	burner-sync-protocol	burner_sync_protocol.rs	modules/burner_sync_protocol.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_inventory_codec	inventory-codec	inventory_codec.rs	modules/inventory_codec.rs	DONE_UNVERIFIED	source exists, target missing; file in save.rs per toml	wired in android_bundled.rs + game.rs re-exports	module
+create_port_inventory_packet	inventory-packet	inventory_packet.rs	modules/inventory_packet.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+create_port_item_contact	item-contact	item_contact.rs	modules/item_contact.rs	DONE_UNVERIFIED	source exists, target missing	wired in android_bundled.rs + game.rs re-exports	module
+helper_chain_shape	chain-update-shape	chain_shape.rs	N/A	DONE_UNVERIFIED	not found as separate file	inlined in modules/chain_runtime.rs	helper
+helper_assets_root	local-assets-reload	assets_root.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_assets_startup	local-assets	assets_startup.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_basin_survival	basin-mixer-survival	basin_survival.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_belt_flush	belt-processing-flush	belt_flush.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_block_changed	block-changed	block_changed.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_burner_clone_item	burner-clone-item	burner_clone_item.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_burner_data_maps	burner-data-map-types	burner_data_maps.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_burner_entity	burner-entity-from-state	burner_entity.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_burner_sprites	burner-standalone-sprites	burner_sprites.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_burner_stateful	burner-stateful-entity	burner_stateful.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_container	container	container.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_content_paths	bundled-content	content_paths.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_crank_packet	crank-client-data	crank_packet.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_depot_automation	depot-automation-insert	depot_automation.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_depot_changed	depot-transported-identity	depot_changed.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_depot_prediction	depot-prediction	depot_prediction.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_destroy	destroy-structure	destroy.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_draw	draw	draw.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_fluid_custom_block_fluids	basin-custom-block-fluids	fluid-custom_block_fluids.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_fluid_custom_fluid_drain	basin-custom-fluid-drain	fluid-custom_fluid_drain.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_fluid_custom_fluid_fill	basin-custom-fluid-fill	fluid-custom_fluid_fill.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_fluid_custom_fluid_tanks	basin-custom-fluid-tanks	fluid-custom_fluid_tanks.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_gauge_analog	gauge-analog	gauge_analog.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_gauge_has_analog	gauge-has-analog	gauge_has_analog.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_inventory_decode	inventory-decode	inventory_decode.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_item_after_vertical_collision	item-after-vertical-collision	item_after_vertical_collision.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_click	motor-click	motor_click.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_drag	motor-drag	motor_drag.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_draw	motor-draw	motor_draw.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_frame	motor-frame	motor_frame.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_hud	motor-hud	motor_hud.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_key_release	motor-key-release	motor_key_release.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_level	motor-level	motor_level.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_open	motor-open	motor_open.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_packet	motor-packet	motor_packet.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_release	motor-release	motor_release.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_scroll	motor-board-scroll	motor_scroll.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_tick	motor-value-client-tick	motor_tick.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_world	motor-world-display	motor_world.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_motor_world_reset	motor-world-reset	motor_world_reset.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_particles_flush	particle-events-flush	particles_flush.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_particles_packet	particle-events-received	particles_packet.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_placed	placed	placed.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_placement_state	placement-state	placement_state.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_render_bounds	wheel-render-bounds	render_bounds.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_render_trace	render-pose-trace	render_trace.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_right_click	right-click	right_click.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_schematic_command	schematic-command	schematic_command.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_schematic_register	schematic-register	schematic_register.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_server_data	server-data	server_data.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_tick	tick	tick.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_ticks	ticks	ticks.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_update_tag	update-tag	update_tag.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_use_on	use-on	use_on.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+helper_visual_tick	client-visual-tick	visual_tick.rs	N/A	TODO	not found as separate file	data missing: inlined location	helper
+hook_stub_native_key	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:199	13 dispatch functions in android_bundled.rs	hook_stub
+hook_stub_native_wheel	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:207	hook_stub	hook_stub
+hook_stub_native_zoom	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:215	hook_stub	hook_stub
+hook_stub_native_mods	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:223	hook_stub	hook_stub
+hook_stub_native_settings	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:237	hook_stub	hook_stub
+hook_stub_native_settings_click	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:251	hook_stub	hook_stub
+hook_stub_native_minimap	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:265	hook_stub	hook_stub
+hook_stub_native_frame	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:273	hook_stub	hook_stub
+hook_stub_native_panel_event	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:282	hook_stub	hook_stub
+hook_stub_native_command	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:291	hook_stub	hook_stub
+hook_stub_native_gui_layer_post	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:301	hook_stub	hook_stub
+hook_stub_native_tick	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:309	hook_stub	hook_stub
+hook_stub_reset	N/A	N/A	N/A	DONE_UNVERIFIED	declared in android_bundled.rs:317	reset() function	hook_stub
+hook_call_site_native_key	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1302	call site for native_key	hook_stub
+hook_call_site_native_wheel	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1306	call site for native_wheel	hook_stub
+hook_call_site_native_zoom	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1327	call site for native_zoom	hook_stub
+hook_call_site_native_mods	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1375	call site for native_mods	hook_stub
+hook_call_site_native_settings	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1382	call site for native_settings	hook_stub
+hook_call_site_native_settings_click	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1388	call site for native_settings_click	hook_stub
+hook_call_site_native_minimap	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1367	call site for native_minimap	hook_stub
+hook_call_site_native_frame	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1138	call site for native_frame	hook_stub
+hook_call_site_native_panel_event	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1394	call site for native_panel_event	hook_stub
+hook_call_site_native_command	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1313	call site for native_command	hook_stub
+hook_call_site_native_gui_layer_post	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1240	call site for native_gui_layer_post	hook_stub
+hook_call_site_native_tick	N/A	N/A	N/A	DONE_UNVERIFIED	native_hooks.rs:1149	call site for native_tick	hook_stub
+hook_call_site_reset	N/A	N/A	N/A	DONE_UNVERIFIED	game.rs:22260	call site for reset()	hook_stub
+android_bundled_decl_zoom	N/A	N/A	N/A	DONE_UNVERIFIED	android_bundled.rs:7-33	7 zoom module declarations	out_of_scope
+android_bundled_decl_minimap	N/A	N/A	N/A	DONE_UNVERIFIED	android_bundled.rs:35-53	5 minimap module declarations	out_of_scope
+android_bundled_decl_recipes	N/A	N/A	N/A	DONE_UNVERIFIED	android_bundled.rs:55-81	7 recipes module declarations	out_of_scope
+android_bundled_decl_smartf3	N/A	N/A	N/A	DONE_UNVERIFIED	android_bundled.rs:83-105	7 smartf3 module declarations	out_of_scope
+android_bundled_decl_appleskin	N/A	N/A	N/A	DONE_UNVERIFIED	android_bundled.rs:107-137	7 appleskin module declarations	out_of_scope
+android_bundled_decl_jei	N/A	N/A	N/A	DONE_UNVERIFIED	android_bundled.rs:139-169	7 jei module declarations	out_of_scope
+android_bundled_decl_treefall	N/A	N/A	N/A	DONE_UNVERIFIED	android_bundled.rs:171-196	7 treefall module declarations	out_of_scope
+final_build_test	N/A	N/A	N/A	DONE_UNVERIFIED	cargo check -p horizon-client (host) passes	android target check blocked by missing NDK		wiring

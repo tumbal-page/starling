@@ -47,5 +47,12 @@
     "repository": "https://github.com/horizon-rust/horizon-mods",
     "license": "MIT",
     "changes": "Static Android adaptation. Added native_tick dispatch. Pinned injections into break_block (game.rs), pop_resource (game.rs), destroy_progress (hand.rs), guest_command (lan_actions.rs)."
+  },
+  {
+    "id": "create",
+    "commit": "9c7f9b2215dfed497aba5522c44f38926628648d",
+    "repository": "https://github.com/horizon-rust/horizon-mods",
+    "license": "MIT",
+    "changes": "Static Android adaptation. 36/63 injections mapped to API 80; 27 injections stubbed pending API backport (client_level_unload, interaction_key, server_data_loaded, standalone_models, data_map_types, fluid hooks, render hooks, screen drag/key-release). Crates: assets, engine, schematics."
   }
 ]

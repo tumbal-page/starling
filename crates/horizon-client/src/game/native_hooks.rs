@@ -280,6 +280,11 @@ use super::{
     native_panel_recipes::RecipePage,
     native_server::{NativeCommand, NativeServerPlayer},
 };
+use crate::mod_api::{
+    NativeCamera, NativeEntity, NativeFluidAction, NativeFluidDrain,
+    NativeFluidRenderOptions, NativeFluidStack, NativeFluidTankView, NativeModelMaterial,
+    NativeModelRenderOptions, NativeModelShade, NativeModelUvShift,
+};
 use horizon_client::{
     atlas_sources::qualified,
     block_entities::Pos,
@@ -317,6 +322,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use serde_json::Value;
 use winit::{event::MouseButton, keyboard::KeyCode};
 
 /// `Level.setBlock`'s flags, for the `native_set_block_property` helpers:
@@ -3583,6 +3589,169 @@ impl Game<'_> {
     /// hotbar, then the inventory. The count is cut to one stack.
     pub(super) fn native_give(&mut self, item: &str, count: u32) -> Result<(), String> {
         self.recipe_give(item, count)
+    }
+
+    /// Stub for Create mod: looks up a mod-tracked entity by id.
+    pub(super) fn native_entity(&self, _id: u32) -> Option<NativeEntity> {
+        None
+    }
+
+    /// Stub for Create mod: returns the native camera pose.
+    pub(super) fn native_camera(&self) -> Option<NativeCamera> {
+        None
+    }
+
+    /// Stub for Create mod: drains fluid from an item stack container.
+    pub(super) fn native_item_fluid_drain(
+        &self,
+        _stack: &ItemStack,
+        _amount: i32,
+    ) -> Option<(String, i32, ItemStack)> {
+        None
+    }
+
+    /// Stub for Create mod: fills fluid into an item stack container.
+    pub(super) fn native_item_fluid_fill(
+        &self,
+        _stack: &ItemStack,
+        _fluid: &str,
+        _amount: i32,
+    ) -> Option<(i32, bool)> {
+        None
+    }
+
+    /// Stub for Create mod: fills a fluid stack into a block's tanks.
+    pub(super) fn native_fluid_fill_stack(
+        &self,
+        _dim: &str,
+        _pos: [i32; 3],
+        _side: Option<()>,
+        _fluid: &NativeFluidStack,
+        _action: NativeFluidAction,
+    ) -> i32 {
+        0
+    }
+
+    /// Stub for Create mod: drains a fluid stack from a block's tanks.
+    pub(super) fn native_fluid_drain_stack(
+        &self,
+        _dim: &str,
+        _pos: [i32; 3],
+        _side: Option<()>,
+        _fluid: &NativeFluidStack,
+        _action: NativeFluidAction,
+    ) -> i32 {
+        0
+    }
+
+    /// Stub for Create mod: reads a block's fluid tanks.
+    pub(super) fn native_fluid_view(
+        &self,
+        _dim: &str,
+        _pos: [i32; 3],
+        _side: Option<()>,
+    ) -> Option<NativeFluidTankView> {
+        None
+    }
+
+    /// Stub for Create mod: draws a fluid box in the world renderer.
+    pub(super) fn native_draw_fluid_box(
+        &mut self,
+        _draw: &mut BlockEntityDraw,
+        _fluid: &str,
+        _box: [f64; 6],
+        _options: NativeFluidRenderOptions,
+    ) {
+    }
+
+    /// Stub for Create mod: checks if any block collides at `pos`.
+    pub(super) fn native_block_collision(&self, _pos: [i32; 3]) -> Vec<horizon_core::geometry::Aabb> {
+        Vec::new()
+    }
+
+    /// Stub for Create mod: reads the fluid contained in an item stack.
+    pub(super) fn native_item_fluid(&self, _stack: &ItemStack) -> Option<String> {
+        None
+    }
+
+    /// Stub for Create mod: draws a block model in the world renderer.
+    pub(super) fn native_draw_model(
+        &mut self,
+        _draw: &mut BlockEntityDraw,
+        _model: &str,
+        _color: u32,
+    ) {
+    }
+
+    /// Stub for Create mod: draws a terrain model in the world renderer.
+    pub(super) fn native_draw_terrain_model(
+        &mut self,
+        _draw: &mut BlockEntityDraw,
+        _model: &str,
+        _options: NativeModelRenderOptions<'_>,
+    ) {
+    }
+
+    /// Stub for Create mod: returns the open mod screen, if any.
+    pub(super) fn native_mod_screen(&self) -> Option<NativeScreenView<'_>> {
+        None
+    }
+
+    /// Stub for Create mod: reads a data map value.
+    pub(super) fn native_data_map(&self, _category: &str, _id: u32, _data: &Value) -> Value {
+        Value::Null
+    }
+
+    /// Stub for Create mod: reads data map entries for a name.
+    pub(super) fn native_data_map_entries(&self, _category: &str, _name: &str) -> Vec<Value> {
+        Vec::new()
+    }
+
+    /// Stub for Create mod: checks if a mod's screen is open.
+    pub(super) fn native_mod_screen_open(&self, _mod_id: &str) -> bool {
+        false
+    }
+
+    /// Stub for Create mod: closes a mod's screen.
+    pub(super) fn native_mod_screen_close(&self, _mod_id: &str) {}
+
+    /// Stub for Create mod: reads the block name for a state.
+    pub(super) fn native_state_block(&self, _state: BlockStateId) -> Option<&str> {
+        None
+    }
+
+    /// Stub for Create mod: reads a mod-tracked entity's NBT.
+    pub(super) fn native_entity_nbt(&self, _entity: &NativeEntity) -> Option<Value> {
+        None
+    }
+
+    /// Stub for Create mod: returns the physical window size in pixels.
+    #[cfg(target_os = "android")]
+    pub(super) fn native_physical_window_size(&self) -> Option<[f32; 2]> {
+        None
+    }
+
+    /// Stub for Create mod: draws a textured quad in the world.
+    #[cfg(target_os = "android")]
+    pub(super) fn native_world_quad(
+        &mut self,
+        _draw: &mut super::android_bundled::create::native_world_draw::NativeWorldDraw,
+        _sprite: &str,
+        _corners: [[f32; 3]; 4],
+        _uv: [f32; 4],
+        _color: [u8; 4],
+    ) {
+    }
+
+    /// Stub for Create mod: draws text in the world.
+    #[cfg(target_os = "android")]
+    pub(super) fn native_world_text(
+        &mut self,
+        _draw: &mut super::android_bundled::create::native_world_draw::NativeWorldDraw,
+        _text: &horizon_client::text::Text,
+        _color: u32,
+        _outline: Option<u32>,
+    ) {
     }
 }
 

@@ -196,6 +196,12 @@ mod treefall_command;
 #[path = "android_bundled/treefall/tick.rs"]
 mod treefall_tick;
 
+/// Create mod modules. Declared here so the `modules/` files can be addressed
+/// as `crate::game::create_port_*` from game code and as `super::create_port_*`
+/// from sibling modules.
+#[cfg(target_os = "android")]
+pub(super) mod create;
+
 pub(super) fn native_key(game: &mut Game<'_>, key: &str, pressed: bool) {
     let _ = (&game, &key, &pressed);
     #[cfg(target_os = "android")]

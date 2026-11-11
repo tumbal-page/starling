@@ -91,6 +91,7 @@ mod command_blocks;
 mod command_harness;
 mod command_minecarts;
 mod commands;
+pub mod mod_api;
 mod composter;
 mod consume;
 mod control;
@@ -206,6 +207,25 @@ mod native_hooks;
 use android_bundled::{
     jei, jei_glue, official_appleskin, official_appleskin_icons, official_minimap,
     official_recipes, official_recipes_glue, official_zoom, smartf3, treefall,
+};
+/// Re-export Create modules so they can be addressed as `crate::game::create_port_*`
+/// from game code and as `super::create_port_*` from sibling modules.
+#[cfg(target_os = "android")]
+pub(super) use android_bundled::create::{
+    create_port, create_port_basin, create_port_belt, create_port_burner,
+    create_port_burner_interactions, create_port_kinetic_runtime, create_port_millstone,
+    create_port_interactions, create_port_placement,
+    create_port_chain, create_port_schematic_runtime, create_port_inventory,
+    create_port_sounds, create_port_motor_control, create_port_motor_value_ui,
+    create_port_motor_value_world, create_port_belt_press, create_port_basin_recipes,
+    create_port_press_basin, create_port_mixer, create_port_fan, create_port_fan_entities,
+    create_port_drill, create_port_world_items, create_port_particles,
+    create_port_presentation, create_port_goggles, create_port_instruments,
+    create_port_generators, create_port_motor_reach, create_port_nativeaudio,
+    create_port_press_client, create_port_fluid_codec, create_port_burner_presentation,
+    create_port_basin_tooltip, create_port_burner_prediction, create_port_burner_sync,
+    create_port_burner_sync_protocol, create_inventory_codec, create_port_inventory_packet,
+    create_port_item_contact,
 };
 mod native_lifecycle;
 mod native_menus;
