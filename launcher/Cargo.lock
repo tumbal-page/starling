@@ -2683,7 +2683,6 @@ dependencies = [
  "horizon-bench",
  "horizon-core",
  "horizon-friends",
- "horizon-mod-api-gen",
  "horizon-mods",
  "horizon-port-pack",
  "horizon-prepare",
@@ -2699,10 +2698,8 @@ dependencies = [
  "oo7",
  "proc-macro2",
  "pulldown-cmark",
- "quote",
  "raw-window-handle",
  "security-framework 3.7.0",
- "semver",
  "serde",
  "serde_json",
  "sha1",
@@ -2713,20 +2710,8 @@ dependencies = [
  "toml 1.1.8+spec-1.1.0",
  "trash",
  "ureq",
- "url",
  "winresource",
  "zip",
-]
-
-[[package]]
-name = "horizon-mod-api-gen"
-version = "0.1.0"
-dependencies = [
- "heck 0.5.0",
- "quote",
- "serde",
- "serde_json",
- "syn 2.0.119",
 ]
 
 [[package]]

@@ -1,34 +1,9 @@
 //! Source-only native mixin bundles. Reading a bundle never executes its code.
 use super::{Facts, valid_id};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io::Read, path::PathBuf};
+use std::{collections::BTreeMap, io::Read, path::Path};
 
 pub const MANIFEST: &str = "horizon-native.json";
-
-/// Why a native mod may not carry `mod.wasm`: WebAssembly mods don't run any more.
-pub const WASM_GONE: &str = "mod.wasm: WebAssembly mods don't run any more, port the code to a native mod (docs/native-mods.md)";
-
-/// Whether `path` names a native mod's file: an `.hnmod`, or a `.hmod` holding native code
-/// (one file for content and code, docs/native-mods.md).
-pub fn is_file(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|e| e == "hnmod" || e == "hmod")
-}
-
-/// Whether the mod file at `path` carries native code ([`MANIFEST`]): every `.hnmod`, and a
-/// `.hmod` with code beside or instead of its content.
-pub fn holds(path: &Path) -> bool {
-    std::fs::File::open(path)
-        .ok()
-        .and_then(|f| zip::ZipArchive::new(f).ok())
-        .is_some_and(|mut zip| zip.by_name(MANIFEST).is_ok())
-}
-
-/// Whether a `.hmod`'s entry `name` is its content's (`horizon-mod.toml`, `assets/`, `data/`),
-/// which [`crate::Content`] reads and checks, not the native build.
-fn content(name: &str) -> bool {
-    name == crate::manifest::MANIFEST || name.starts_with("assets/") || name.starts_with("data/")
-}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -84,54 +59,16 @@ impl Manifest {
             version: Some(self.version.clone()),
             api: self.api(),
             game: Some(self.game.clone()),
-            hooks: self.hooks,
             ..Facts::default()
         }
     }
 }
 
-#[derive(Clone, Debug)]
 pub struct Bundle {
     pub manifest: Manifest,
-    /// The directory this bundle was read from (for unpacked bundles).
-    pub dir: PathBuf,
-    /// The Horizon revision from `[compatibility] horizon_revision` in the mixin manifest.
-    pub horizon: Option<String>,
-    /// The horizon-mixins revision from `[compatibility] mixins_revision` in the mixin manifest.
-    pub mixins: Option<String>,
-    /// The API package folder, if the bundle has an `[api]` section.
-    pub api: Option<String>,
-    /// The mod's injection entries from `[[injection]]`.
-    pub injections: Vec<Injection>,
-    /// Whether the bundle has mixin content beyond the standard `[mod]`, `[compatibility]`,
-    /// `[api]`, `[dependencies]` tables.
-    pub mixins_content: bool,
     /// Validated relative paths: Rust and TOML, plus files under `mixins/<id>/data/` or a
-    /// `data/` folder deeper in (a crate's). A `.hmod`'s content files are not among them.
+    /// `data/` folder deeper in (a crate's).
     pub files: BTreeMap<String, Vec<u8>>,
-    /// Validated top-level content of a combined `.hmod`, including its manifest.
-    /// Legacy `.hnmod` files stay code-only.
-    pub content: BTreeMap<String, Vec<u8>>,
-}
-
-/// An injection entry from `[[injection]]` in `horizon-mixin.toml`.
-#[derive(Clone, Debug)]
-pub struct Injection {
-    pub id: String,
-    pub site: InjectionSite,
-    pub hook_version: Option<u32>,
-    pub kind: Option<String>,
-    pub selector: Option<String>,
-    pub ordinal: Option<i64>,
-    pub priority: i64,
-    pub cancellable: bool,
-}
-
-/// The site of an injection: either a named hook or a direct target path.
-#[derive(Clone, Debug)]
-pub enum InjectionSite {
-    Hook(String),
-    Target(String),
 }
 
 /// Whether `rest` (a path inside `mixins/<id>/`) is a data file: under the bundle's `data/`, or
@@ -161,42 +98,14 @@ pub fn allowed(rest: &str) -> bool {
     rest.ends_with(".rs") || rest.ends_with(".toml") || in_data(rest) || text(rest)
 }
 
-/// Validate an `[api]` table from TOML (without checking filesystem paths).
-/// Returns the folder path if valid.
-fn validate_api_table(table: &toml::Value) -> Result<String, String> {
-    if !table
-        .as_table()
-        .is_some_and(|t| t.len() == 1 && t.contains_key("path"))
-    {
-        return Err("[api] accepts only path".into());
-    }
-    let folder = table
-        .get("path")
-        .and_then(toml::Value::as_str)
-        .ok_or_else(|| "[api] needs a path".into())?;
-    let relative = std::path::Path::new(folder);
-    if relative.is_absolute() {
-        return Err(format!("invalid [api] path {folder:?}"));
-    }
-    Ok(folder.to_owned())
-}
-
 impl Bundle {
-    /// All original files that affect the build, in path order for stable digests.
-    pub fn source_files(&self) -> BTreeMap<&str, &[u8]> {
-        self.files
-            .iter()
-            .chain(&self.content)
-            .map(|(name, bytes)| (name.as_str(), bytes.as_slice()))
-            .collect()
-    }
-
     pub fn read(path: &Path) -> Result<Self, String> {
         let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
         let mut zip = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+        if zip.len() > 512 {
+            return Err("native bundle has too many entries".into());
+        }
         let mut files = BTreeMap::new();
-        let mut names = std::collections::BTreeSet::new();
-        let mut content_id = None;
         let mut total = 0u64;
         for i in 0..zip.len() {
             let mut entry = zip.by_index(i).map_err(|e| e.to_string())?;
@@ -216,29 +125,6 @@ impl Bundle {
             {
                 return Err(format!("invalid native bundle path: {name}"));
             }
-            if !names.insert(name.clone()) {
-                return Err("duplicate native bundle path".into());
-            }
-            if name == crate::manifest::WASM {
-                return Err(WASM_GONE.into());
-            }
-            if content(&name) {
-                if name == crate::manifest::MANIFEST {
-                    if entry.size() > 1 << 20 {
-                        return Err("native content manifest exceeds 1 MiB".into());
-                    }
-                    let mut text = String::new();
-                    (&mut entry)
-                        .take(1 << 20)
-                        .read_to_string(&mut text)
-                        .map_err(|e| format!("{name}: {e}"))?;
-                    content_id = Some(crate::Manifest::parse(&text)?.id);
-                }
-                continue;
-            }
-            if files.len() >= 512 {
-                return Err("native bundle has too many entries".into());
-            }
             let mut bytes = Vec::new();
             (&mut entry)
                 .take(super::MAX_FILE + 1)
@@ -256,13 +142,6 @@ impl Bundle {
             serde_json::from_slice(files.get(MANIFEST).ok_or("missing horizon-native.json")?)
                 .map_err(|e| e.to_string())?;
         manifest.check()?;
-        if let Some(id) = content_id.as_ref().filter(|id| **id != manifest.id) {
-            return Err(format!(
-                "its {} is mod {id}, its {MANIFEST} {}: one file is one mod",
-                crate::manifest::MANIFEST,
-                manifest.id
-            ));
-        }
         let prefix = format!("mixins/{}/", manifest.id);
         for name in files.keys().filter(|n| n.as_str() != MANIFEST) {
             let Some(rest) = name.strip_prefix(&prefix) else {
@@ -296,90 +175,7 @@ impl Bundle {
         {
             return Err("native manifest and mixin identity/revision differ".into());
         }
-        // Extract additional fields from the mixin manifest
-        let mod_priority = source
-            .get("mod")
-            .and_then(|m| m.get("priority"))
-            .and_then(|v| v.as_integer())
-            .unwrap_or(0);
-        let horizon = source
-            .get("compatibility")
-            .and_then(|c| c.get("horizon_revision"))
-            .and_then(|v| v.as_str())
-            .map(str::to_owned);
-        let mixins = source
-            .get("compatibility")
-            .and_then(|c| c.get("mixins_revision"))
-            .and_then(|v| v.as_str())
-            .map(str::to_owned);
-        let api = source
-            .get("api")
-            .map(validate_api_table)
-            .transpose()?;
-        let injections = source
-            .get("injection")
-            .and_then(|v| v.as_array())
-            .into_iter()
-            .flatten()
-            .filter_map(|entry| {
-                let text = |name: &str| entry.get(name).and_then(|v| v.as_str()).map(str::to_owned);
-                let id = text("id")?;
-                let site = match (text("hook"), text("target")) {
-                    (Some(hook), _) => InjectionSite::Hook(hook),
-                    (None, Some(target)) => InjectionSite::Target(target),
-                    (None, None) => return None,
-                };
-                Some(Injection {
-                    id,
-                    site,
-                    hook_version: entry
-                        .get("hook_version")
-                        .and_then(|v| v.as_integer())
-                        .and_then(|v| u32::try_from(v).ok()),
-                    kind: text("kind"),
-                    selector: text("selector"),
-                    ordinal: entry.get("ordinal").and_then(|v| v.as_integer()),
-                    priority: entry
-                        .get("priority")
-                        .and_then(|v| v.as_integer())
-                        .unwrap_or(mod_priority),
-                    cancellable: entry.get("cancellable").and_then(|v| v.as_bool()) == Some(true),
-                })
-            })
-            .collect();
-        let mixins_content = source
-            .keys()
-            .any(|key| !["mod", "compatibility", "api", "dependencies"].contains(&key.as_str()));
-        let mut content = BTreeMap::new();
-        if path.extension().is_some_and(|e| e == "hmod") && content_id.is_some() {
-            let package = crate::manifest::Package::read(path)?;
-            let checked = crate::Content::read(path, &package.manifest)?;
-            let mut reader = checked.reader()?;
-            for name in &checked.files {
-                content.insert(name.clone(), reader.read(name)?);
-            }
-            let mut bytes = Vec::new();
-            zip.by_name(crate::manifest::MANIFEST)
-                .map_err(|e| e.to_string())?
-                .take((1 << 20) + 1)
-                .read_to_end(&mut bytes)
-                .map_err(|e| e.to_string())?;
-            if bytes.len() > 1 << 20 {
-                return Err("native content manifest exceeds 1 MiB".into());
-            }
-            content.insert(crate::manifest::MANIFEST.into(), bytes);
-        }
-        Ok(Self {
-            manifest,
-            dir: path.parent().unwrap_or(Path::new("")).to_path_buf(),
-            horizon,
-            mixins,
-            api,
-            injections,
-            mixins_content,
-            files,
-            content,
-        })
+        Ok(Self { manifest, files })
     }
 }
 
@@ -400,18 +196,8 @@ mod tests {
         }
     }
     fn read(name: &str, extras: &[(&str, &[u8])], mixin: &str) -> Result<Bundle, String> {
-        read_format(name, "hnmod", extras, mixin)
-    }
-    fn read_format(
-        name: &str,
-        extension: &str,
-        extras: &[(&str, &[u8])],
-        mixin: &str,
-    ) -> Result<Bundle, String> {
-        let path = std::env::temp_dir().join(format!(
-            "native-bundle-{name}-{}.{extension}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("native-bundle-{name}-{}.hnmod", std::process::id()));
         let mut zip = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
         let options = zip::write::SimpleFileOptions::default();
         zip.start_file(MANIFEST, options).unwrap();
@@ -422,7 +208,7 @@ mod tests {
         zip.write_all(mixin.as_bytes()).unwrap();
         for (name, bytes) in extras {
             zip.start_file(*name, options).unwrap();
-            zip.write_all(bytes).unwrap()
+            zip.write_all(bytes).unwrap();
         }
         zip.finish().unwrap();
         let result = Bundle::read(&path);
@@ -435,39 +221,6 @@ mod tests {
             "a".repeat(40)
         )
     }
-    #[test]
-    fn combined_sound_content_is_validated_and_part_of_the_source_digest() {
-        let manifest = b"id=\"veinminer\"\nname=\"Sound proof\"\nversion=\"0.3.0\"\napi=\"0.2\"\ncapabilities=[\"registries\"]\n";
-        let extras: &[(&str, &[u8])] = &[
-            ("horizon-mod.toml", manifest),
-            (
-                "assets/veinminer/sounds.json",
-                b"{\"proof\":{\"sounds\":[\"veinminer:proof\"]}}",
-            ),
-            (
-                "assets/veinminer/sounds/proof.ogg",
-                b"synthetic audio marker",
-            ),
-        ];
-        let combined = read_format("sounds", "hmod", extras, &mixin()).unwrap();
-        assert_eq!(combined.content.len(), 3);
-        assert_eq!(combined.source_files().len(), combined.files.len() + 3);
-        assert!(!combined.files.keys().any(|p| p.starts_with("assets/")));
-        let legacy = read_format("legacy-sounds", "hnmod", extras, &mixin()).unwrap();
-        assert!(legacy.content.is_empty(), "legacy bundles stay code-only");
-        for bad in ["assets/Other/sounds.json", "assets/../sounds.json"] {
-            assert!(
-                read_format(
-                    "bad-sound",
-                    "hmod",
-                    &[("horizon-mod.toml", manifest), (bad, b"{}")],
-                    &mixin()
-                )
-                .is_err()
-            );
-        }
-    }
-
     #[test]
     fn source_bundle_carries_exact_compatibility_into_index_facts() {
         let bundle = read(
@@ -514,12 +267,12 @@ mod tests {
             "mixins/veinminer/code.dll",
             "mixins/veinminer/data/../code.dll",
             "mixins/veinminer/database/file.bin",
-            ("mixins/veinminer/engine/data.bin"),
-            ("mixins/veinminer/engine/src/data/blob.bin"),
-            ("mixins/veinminer/engine/src/README.md"),
-            ("mixins/veinminer/engine/README.dll/x.bin"),
-            ("mixins/veinminer/engine/Cargo.lock"),
-            ("mixins/other/data/file.bin"),
+            "mixins/veinminer/engine/data.bin",
+            "mixins/veinminer/engine/src/data/blob.bin",
+            "mixins/veinminer/engine/src/README.md",
+            "mixins/veinminer/engine/README.dll/x.bin",
+            "mixins/veinminer/engine/Cargo.lock",
+            "mixins/other/data/file.bin",
             "mixins\\veinminer\\hook.rs",
         ]
         .iter()
@@ -527,48 +280,6 @@ mod tests {
         {
             assert!(read(&format!("bad-path-{i}"), &[(name, b"bad")], &mixin()).is_err());
         }
-    }
-    #[test]
-    fn one_hmod_carries_content_beside_its_native_code() {
-        let toml = r#"id = "veinminer"
-name = "Veinminer"
-version = "0.3.0"
-api = "0.2"
-capabilities = ["registries"]
-"#;
-        let bundle = read(
-            "unified",
-            &[
-                ("horizon-mod.toml", toml.as_bytes()),
-                ("assets/veinminer/lang/en_us.json", b"{}"),
-                ("data/veinminer/tags/item/ores.json", b"{}"),
-                ("mixins/veinminer/hook.rs", b"fn hook() {}"),
-            ],
-            &mixin(),
-        )
-        .unwrap();
-        let names: Vec<&str> = bundle.files.keys().map(String::as_str).collect();
-        assert_eq!(
-            names,
-            [
-                MANIFEST,
-                "mixins/veinminer/hook.rs",
-                "mixins/veinminer/horizon-mixin.toml"
-            ]
-        );
-        let other = toml.replace(r#""veinminer""#, r#""other""#);
-        let e = read(
-            "two-ids",
-            &[("horizon-mod.toml", other.as_bytes())],
-            &mixin(),
-        )
-        .err()
-        .unwrap();
-        assert!(e.contains("one file is one mod"), "{e}");
-        let e = read("wasm", &[("mod.wasm", b"\0asm")], &mixin())
-            .err()
-            .unwrap();
-        assert_eq!(e, WASM_GONE);
     }
     #[test]
     fn rejects_missing_or_mismatched_mixin_identity_without_panicking() {
