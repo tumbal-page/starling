@@ -5,7 +5,7 @@
 // Adapted for Android bundled port.
 
 use super::Game;
-use crate::containers::BlockEntity;
+use horizon_client::containers::BlockEntity;
 use horizon_world::nbt::Tag;
 use std::{cell::RefCell, path::PathBuf};
 
@@ -142,3 +142,5 @@ pub(super) fn level_tick(game: &mut Game<'_>) {
         }
     }
 }
+
+pub(super) fn tick(_game: &mut Game<'_>, _pos: [i32; 3], _entity: &mut horizon_client::containers::ModBlockEntity) {}

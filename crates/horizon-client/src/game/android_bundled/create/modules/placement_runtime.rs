@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 // Vanilla placement remains responsible for obstruction, permissions and consumption.
 use super::{Game, GameLevel};
-use crate::items::ItemStack;
-use create_engine::{
+use horizon_client::items::ItemStack;
+use super::create_engine::{
     kinetics::Axis,
     placement::{self, Direction},
 };
@@ -126,7 +126,7 @@ pub(super) fn state(
             placement::shaft(look, face, ctx.sneaking, ports)
         };
         if block == "create:large_water_wheel" {
-            if !create_engine::waterwheel::structure(axis)
+            if !super::create_engine::waterwheel::structure(axis)
                 .into_iter()
                 .all(|delta| {
                     let p: [i32; 3] = std::array::from_fn(|i| pos[i] + delta[i]);
@@ -257,7 +257,7 @@ pub(super) fn alias(game: &mut Game<'_>, stack: &ItemStack, pos: [i32; 3], face:
             let axis = placement::vertical_gearbox(horizontal(game.yaw), ports(game, target));
             game.native_set_block_property(target, "axis", if axis == Axis::X { "x" } else { "z" });
         }
-        game.award_stat("used", &stack.item, 1);
+        game.award_stat("used", 1);
         game.trigger_block("minecraft:placed_block", target, stack);
         game.native_place_block(stack, target, state);
         game.consume_held();
@@ -293,7 +293,7 @@ pub(super) fn destroy(game: &mut Game<'_>, pos: [i32; 3], canceled: &mut bool) {
         .registry
         .default_state("minecraft:air")
         .unwrap();
-    for delta in create_engine::waterwheel::structure(axis) {
+    for delta in super::create_engine::waterwheel::structure(axis) {
         let p = std::array::from_fn(|i| master[i] + delta[i]);
         if game.native_block(p) == "create:water_wheel_structure" {
             game.native_set_block(&dim, p, air, 3);

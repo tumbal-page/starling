@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 // Server-derived client fuel definitions, independent of resource-pack guesses.
 use super::{Game, create_port_burner_sync_protocol as wire};
-use crate::items::ItemStack;
-use create_engine::burner::Candidate;
+use horizon_client::items::ItemStack;
+use super::create_engine::burner::Candidate;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -77,7 +77,7 @@ fn snapshot(game: &Game<'_>) -> Result<wire::Snapshot, String> {
                     .or_else(|| value["burn_time"].as_i64())
                     .and_then(|n| i32::try_from(n).ok())
                     .filter(|n| *n > 0)?;
-                Some((full_id(id), time))
+                Some((full_id(&id), time))
             })
             .collect::<BTreeMap<_, _>>()
     };

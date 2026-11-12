@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 // SharedDepotBlockMethods.onLanded and MechanicalPressBlockEntity world input.
 use super::Game;
-use crate::{containers::ModBlockEntity, items::ItemStack};
+use horizon_client::{containers::ModBlockEntity, items::ItemStack};
 pub(super) fn catch(game: &mut Game<'_>, pos: [i32; 3], entity: &mut ModBlockEntity) {
     if entity.items.iter().any(Option::is_some) {
         return;

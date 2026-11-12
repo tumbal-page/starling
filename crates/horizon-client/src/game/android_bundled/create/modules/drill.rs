@@ -2,9 +2,10 @@
 // Copyright (c) 2026 create-horizon contributors
 // SPDX-License-Identifier: MIT
 // Stationary DrillBlockEntity and BlockBreakingKineticBlockEntity adapter.
-use super::{Game, native_block_entity_draw::BlockEntityDraw};
-use crate::containers::ModBlockEntity;
-use create_engine::{
+use super::{Game, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use horizon_client::containers::ModBlockEntity;
+use super::create_engine::{
     drilling::{Action, DrillCycle},
     placement::Direction,
 };
@@ -236,7 +237,7 @@ pub(super) fn tick(
 }
 
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: [i32; 3],
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -246,13 +247,13 @@ pub(super) fn draw(
     }
     let direction = facing(game, pos);
     let axis = direction.axis();
-    let angle = create_engine::visual::angle(
+    let angle = super::create_engine::visual::angle(
         draw.game_time as f64 + f64::from(draw.partial),
         crate::game::create_port::number(&entity.nbt, "Speed"),
-        create_engine::visual::rotation_offset(pos, axis, false),
+        super::create_engine::visual::rotation_offset(pos, axis, false),
     );
     draw.push();
-    draw.rotate_about(create_engine::visual::positive_axis(axis), angle, [0.5; 3]);
+    draw.rotate_about(super::create_engine::visual::positive_axis(axis), angle, [0.5; 3]);
     crate::game::create_port::face_south(draw, direction);
     game.native_draw_model(draw, "create:block/mechanical_drill/head", 0xFFFFFF);
     draw.pop();

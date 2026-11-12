@@ -1,7 +1,7 @@
 // Copyright (c) The Create Team / The Creators of Create
 // SPDX-License-Identifier: MIT
 //! Placement rules of the supported Create blocks. World queries stay in the adapter.
-use crate::kinetics::Axis;
+use super::kinetics::Axis;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {

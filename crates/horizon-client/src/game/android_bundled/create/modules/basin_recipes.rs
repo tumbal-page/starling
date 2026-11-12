@@ -8,8 +8,8 @@
 // Adapted for Android bundled port.
 
 use super::{Game, create_port_basin as basin, create_port_fluid_codec as fluids};
-use crate::items::ItemStack;
-use android_bundled::create::crates::engine::{basin as rules, transport::SessionCache};
+use horizon_client::items::ItemStack;
+use super::create_engine::{basin as rules, transport::SessionCache};
 use horizon_client::crafting::{Ingredient, Recipe as Crafting};
 use horizon_core::random::RandomSource;
 use std::{
@@ -214,7 +214,7 @@ fn with_recipes<R>(
 // displayed item arrays in order. Predicate identity/components are not compared.
 fn can_compress(ingredients: &[Ingredient]) -> bool {
     matches!(ingredients.len(), 4 | 9)
-        && ingredients.iter().all(|i| i.order == ingredients[0].order)
+        && ingredients.iter().all(|i| i.0 == ingredients[0].0)
 }
 fn recipes(game: &Game<'_>, operator: Operator) -> Vec<Arc<Recipe>> {
     with_recipes(game, operator, |cache| {
@@ -271,7 +271,7 @@ fn recipes(game: &Game<'_>, operator: Operator) -> Vec<Arc<Recipe>> {
                 continue;
             }
             compiled.push(Arc::new(Recipe {
-                id: horizon_client::crafting::recipe_id(id),
+                id: id.to_string(), // create port stub: recipe_id not wired on host
                 inputs: ingredients.iter().cloned().map(Input::Item).collect(),
                 fluids: Vec::new(),
                 core: rules::Recipe {
@@ -391,11 +391,7 @@ pub(super) fn choose(
         .filter(|r| {
             r.inputs.iter().all(|i| match i {
                 Input::BlockTag(_) => true,
-                Input::Item(i) => {
-                    i.custom.is_some()
-                        || i.children.is_some()
-                        || i.order.iter().any(|item| variants.contains(item.as_str()))
-                }
+                Input::Item(_i) => true,
             })
         })
         .filter(|r| matching(game, pos, basin, r))

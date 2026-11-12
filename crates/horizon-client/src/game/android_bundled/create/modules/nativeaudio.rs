@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 // Client-only source SoundScapes and AirCurrentSound through SoundEngine.
 use super::Game;
-use create_engine::audio::{self as rules, FanSound, Group, Key, Sound, SoundScapes};
+use super::create_engine::audio::{self as rules, FanSound, Group, Key, Sound, SoundScapes};
 use horizon_client_render::sound_engine::{
     Attenuation, InstanceId, SoundEngine, SoundInstance, Sounds, Ticking,
 };
@@ -114,7 +114,7 @@ fn instance(sound: &Sound) -> SoundInstance {
         sound.position,
         false,
     );
-    instance.ticking = Ticking::Native;
+    instance.ticking = Ticking::No;
     instance
 }
 fn play_local(
@@ -159,7 +159,7 @@ pub(super) fn crank_packet(game: &mut Game<'_>, pos: [i32; 3], kind: i32, tag: &
     if name != "create:hand_crank" || game.native_block(pos) != "create:hand_crank" {
         return;
     }
-    let Some(crate::containers::BlockEntity::Mod(_)) =
+    let Some(horizon_client::containers::BlockEntity::Mod(_)) =
         game.world.block_entities.get(&(pos[0], pos[1], pos[2]))
     else {
         return;
@@ -297,7 +297,7 @@ pub(super) fn enable_fan(game: &mut Game<'_>, rpm: f32, velocity: [f64; 3]) {
                 [0.0; 3],
                 true,
             );
-            sound.ticking = Ticking::Native;
+            sound.ticking = Ticking::No;
             cache.fan_handle = Some(game.audio.play_instance(sound, true).0);
         }
         update_fan(game, &mut cache);

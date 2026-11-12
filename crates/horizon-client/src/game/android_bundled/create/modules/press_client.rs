@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: MIT
 // PressingBehaviour's actual client read/tick boundary, Create 6.0.10.
 use super::{Game, create_port as port};
-use crate::{
-    containers::{BlockEntity, ModBlockEntity, ModRevision},
+use crate::game::mod_api::{ModBlockEntityExt, ModRevision};
+use horizon_client::{
+    containers::{BlockEntity, ModBlockEntity},
     items::ItemStack,
 };
-use create_engine::{
+use super::create_engine::{
     particles::ParticleRandom,
     pressing::{PressClient, PressMode, PressPacket, PressParticleContext},
     transport::SessionCache,
@@ -62,7 +63,7 @@ fn saved(nbt: &Compound) -> Option<PressPacket> {
     })
 }
 fn bind(client: &mut Client, owner: ModRevision, initial: PressPacket) {
-    if !client.owner.is_some_and(|old| old.same_entity(owner)) {
+    if !client.owner.is_some_and(|old| old.same_entity(&owner)) {
         *client = Client::default();
         client.owner = Some(owner);
         client.cycle.read(initial);
@@ -205,9 +206,10 @@ pub(super) fn travel(game: &Game<'_>, pos: Pos, entity: &ModBlockEntity, partial
             .entries
             .get(&pos)
             .filter(|client| {
+                let revision = entity.revision();
                 client
                     .owner
-                    .is_some_and(|old| old.same_entity(entity.revision()))
+                    .is_some_and(|old| old.same_entity(&revision))
             })
             .map_or_else(
                 || {

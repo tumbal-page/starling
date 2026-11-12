@@ -1,7 +1,7 @@
 // Independently authored from pinned MIT Create schemas and recorded public-API
 // observations. This module has no gameplay dependency: save and client receipt
 // share the same canonical item decoding.
-use crate::containers::{ModBlockEntity, ModBlockEntityFields};
+use horizon_client::containers::ModBlockEntity;
 use horizon_items::items::ItemStack;
 use horizon_world::nbt::Tag;
 use std::ops::ControlFlow;
@@ -88,13 +88,12 @@ pub fn decode(id: &str, tag: &Tag) -> ControlFlow<Option<ModBlockEntity>> {
         nbt.remove(&key.into());
     }
     ControlFlow::Break(Some(
-        ModBlockEntityFields {
+        ModBlockEntity {
             id: id.to_owned(),
             nbt,
             items,
             data: Vec::new(),
-        }
-        .into(),
+        },
     ))
 }
 

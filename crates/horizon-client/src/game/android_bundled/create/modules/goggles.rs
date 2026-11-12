@@ -6,9 +6,9 @@
 // IRotate.{SpeedLevel,StressImpact}, TooltipHelper and Catnip LangBuilder.
 // Catnip's bundled Ponder 1.0.82 license is MIT (LICENSE_Ponder).
 use super::Game;
-use crate::containers::BlockEntity;
+use horizon_client::containers::BlockEntity;
 use crate::game::create_port::number;
-use create_engine::kinetics::{Kind, Pos};
+use super::create_engine::kinetics::{Kind, Pos};
 use horizon_client::{
     hud::{HudBatch, rgba},
     text::{self, Style, Text},
@@ -272,7 +272,7 @@ fn providers(game: &Game<'_>, pos: Pos, block: &str, nbt: &Compound, goggles: bo
     // separator only if the first provider contributed information.
     let running = crate::game::create_port::running_speed(game, nbt);
     let minimum = if matches!(node.kind, Kind::Mixer) {
-        create_engine::basin::DEFAULT_MIXER_MINIMUM_RPM
+        super::create_engine::basin::DEFAULT_MIXER_MINIMUM_RPM
     } else {
         0.0 // IRotate defaults to SpeedLevel.NONE.
     };

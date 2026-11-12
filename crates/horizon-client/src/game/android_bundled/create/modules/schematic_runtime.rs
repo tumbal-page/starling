@@ -6,11 +6,11 @@
 // Adapted for Android bundled port.
 
 use super::Game;
-use crate::{
+use horizon_client::{
     containers::BlockEntity,
-    mod_api::{NativeCommand, NativeServerPlayer},
 };
-use android_bundled::create::crates::schematics::{
+use crate::game::mod_api::{NativeCommand, NativeServerPlayer};
+use super::schematics::{
     BlockEntitySchema, BlockSchema, BlockState, Compound, Limits, Options, Plan, Resolver, Tag,
     TagKind,
 };
@@ -372,7 +372,7 @@ impl Resolver for Registry<'_, '_> {
             if !name
                 .strip_prefix("minecraft:")
                 .and_then(|s| s.strip_suffix("_planks"))
-                .is_some_and(|wood| android_bundled::create::crates::assets::WOODS.contains(&wood))
+                .is_some_and(|wood| super::assets::WOODS.contains(&wood))
             {
                 return Err("wheel Material is not an implemented source wood variant".into());
             }
@@ -612,7 +612,7 @@ pub(super) fn command(
             return;
         }
     };
-    let mut schematic = match android_bundled::create::crates::schematics::read_gzip(&bytes, &Limits::default()) {
+    let mut schematic = match super::schematics::read_gzip(&bytes, &Limits::default()) {
         Ok(s) => s,
         Err(e) => {
             reply(game, failure(e.to_string()));
@@ -643,7 +643,7 @@ pub(super) fn command(
             raw.entry("ScrollValue".into()).or_insert(Tag::Int(0));
         }
     }
-    let plan = match android_bundled::create::crates::schematics::preflight(
+    let plan = match super::schematics::preflight(
         &schematic,
         &Registry { game },
         &Options::default(),

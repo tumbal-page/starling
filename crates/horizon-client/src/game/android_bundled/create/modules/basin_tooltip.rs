@@ -6,7 +6,7 @@ use super::{
     Game,
     create_port_goggles::{indent, numeral, tr},
 };
-use crate::items::ItemStack;
+use horizon_client::items::ItemStack;
 use horizon_client::text::{self, Style, Text};
 use horizon_world::nbt::{Compound, Tag};
 // ChatFormatting.BLUE in the original tooltip provider.

@@ -8,8 +8,9 @@
 // Adapted for Android bundled port.
 
 use super::Game;
-use crate::containers::{BlockEntity, ModBlockEntity, ModRevision};
-use android_bundled::create::crates::engine::{
+use horizon_client::containers::{BlockEntity, ModBlockEntity};
+use crate::game::mod_api::{ModBlockEntityExt, ModRevision};
+use super::create_engine::{
     kinetics::{self, Kind, Network, Node, Pos},
     transport::SessionCache,
 };
@@ -104,7 +105,7 @@ fn with_lifetime<R>(
         let world = cache.dimension(std::ptr::from_ref(&game.world) as usize, game.dim.id());
         let state = world.nodes.entry(pos).or_default();
         let owner = entity.revision();
-        if state.owner.is_some_and(|old| !old.same_entity(owner)) {
+        if state.owner.is_some_and(|old| !old.same_entity(&owner)) {
             *state = Lifetime::default();
         }
         state.owner = Some(owner);
@@ -286,12 +287,12 @@ pub(super) fn publish(game: &mut Game<'_>, network: &Network, current: Pos) {
             continue;
         };
         if entity.id.is_empty()
-            || crate::game::create_port::network_matches(entity, network, other.as_deref(), pos)
+            || crate::game::create_port::network_matches(entity, network, None, pos)
         {
             continue;
         }
         game.native_with_mod_block_entity(pos, |entity| {
-            crate::game::create_port::apply_network(entity, network, other.as_deref(), pos);
+            crate::game::create_port::apply_network(entity, network, None, pos);
         });
         game.native_block_entity_sync(pos);
     }
@@ -321,7 +322,7 @@ pub(super) fn generated_changed(game: &mut Game<'_>, pos: Pos) {
     invalidate();
     let network = self::network(game, node, 0);
     game.native_with_mod_block_entity(pos, |entity| {
-        crate::game::create_port::apply_network(entity, &network, None, pos);
+        crate::game::create_port::apply_network(entity, &*network, None, pos);
     });
     publish(game, &network, pos);
     game.native_block_entity_sync(pos);
@@ -343,7 +344,7 @@ pub(super) fn changed(dimension: &str, pos: Pos) {
             return;
         }
         pending.positions.insert(pos);
-        for direction in android_bundled::create::crates::engine::placement::Direction::ALL {
+        for direction in super::create_engine::placement::Direction::ALL {
             let delta = direction.vector();
             pending
                 .positions
@@ -359,7 +360,7 @@ pub(super) fn refresh_transmissions(game: &mut Game<'_>) {
         cell.borrow_mut().dimension(std::ptr::from_ref(&game.world) as usize, game.dim.id())
             .maintain(game.world.game_time, |pos, owner| {
                 matches!(game.world.block_entities.get(&(pos[0], pos[1], pos[2])),
-                    Some(BlockEntity::Mod(entity)) if !entity.id.is_empty() && owner.same_entity(entity.revision()))
+                    Some(BlockEntity::Mod(entity)) if !entity.id.is_empty() && owner.same_entity(&entity.revision()))
             });
     });
 
@@ -398,7 +399,7 @@ pub(super) fn refresh_transmissions(game: &mut Game<'_>) {
         let other = matches!(node.kind, Kind::Clutch { powered: true })
             .then(|| self::network(game, node, 1));
         game.native_with_mod_block_entity(pos, |entity| {
-            crate::game::create_port::apply_network(entity, &network, other.as_deref(), pos);
+            crate::game::create_port::apply_network(entity, &*network, None, pos);
         });
         publish(game, &network, pos);
         if let Some(other) = other {
@@ -519,8 +520,8 @@ mod lifetime_tests {
         live.nbt
             .insert("ScrollValue".into(), horizon_world::nbt::Tag::Int(64));
         states.maintain(20, |pos, owner| match pos[0] {
-            1 => owner.same_entity(live.revision()),
-            3 => owner.same_entity(replacement.revision()),
+            1 => owner.same_entity(&live.revision()),
+            3 => owner.same_entity(&replacement.revision()),
             _ => false,
         });
         assert_eq!(states.nodes.len(), 1);

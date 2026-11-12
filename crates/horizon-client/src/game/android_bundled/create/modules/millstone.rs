@@ -5,12 +5,13 @@
 // empty-hand collection and original NBT. No vanilla container screen is used.
 // Adapted for Android bundled port.
 
-use super::{Game, native_block_entity_draw::BlockEntityDraw};
-use crate::{
+use super::{Game, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use horizon_client::{
     containers::{ModBlockEntity, ModContainer},
     items::ItemStack,
 };
-use android_bundled::create::crates::engine::{
+use super::create_engine::{
     kinetics::Axis,
     milling::{self, Action, MillCycle},
 };
@@ -85,7 +86,7 @@ pub(super) fn refresh_recipes(game: &Game<'_>) {
         cache.accepted = cache
             .recipes
             .iter()
-            .flat_map(|r| r.input.order.iter().cloned())
+            .flat_map(|r| r.input.0.iter().cloned())
             .collect();
         cache.last.clear();
         cache.sources = recipes.iter().map(|r| r.json.clone()).collect();
@@ -366,7 +367,7 @@ pub(super) fn right_click(game: &mut Game<'_>, pos: [i32; 3]) -> bool {
 }
 
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: [i32; 3],
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -374,10 +375,10 @@ pub(super) fn draw(
     if entity.id != ID {
         return false;
     }
-    let angle = create_engine::visual::angle(
+    let angle = super::create_engine::visual::angle(
         draw.game_time as f64 + f64::from(draw.partial),
         crate::game::create_port::number(&entity.nbt, "Speed"),
-        create_engine::visual::rotation_offset(pos, Axis::Y, false),
+        super::create_engine::visual::rotation_offset(pos, Axis::Y, false),
     );
     draw.push();
     draw.rotate_about([0.0, 1.0, 0.0], angle, [0.5; 3]);
@@ -401,7 +402,7 @@ pub(super) fn client_tick(game: &mut Game<'_>) {
         .block_entities
         .iter()
         .filter_map(|(&(x, y, z), e)| {
-            let crate::containers::BlockEntity::Mod(e) = e else {
+            let horizon_client::containers::BlockEntity::Mod(e) = e else {
                 return None;
             };
             if e.id != ID {

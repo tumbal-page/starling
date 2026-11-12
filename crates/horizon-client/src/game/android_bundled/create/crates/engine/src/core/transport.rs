@@ -7,7 +7,7 @@
 //! World placement, item components, random angles, entities, NBT and rendering
 //! stay in adapters. There is deliberately no automatic stack merging: source
 //! belts preserve separate transported stacks and reserve insertion spacing.
-use crate::{
+use super::{
     fan::Processing,
     kinetics::{Axis, Pos},
     placement::Direction,
@@ -1026,7 +1026,7 @@ mod tests {
         moving.angle = 37;
         moving.side_offset = -0.125;
         moving.fan = Processing {
-            kind: Some(crate::fan::ProcessingType::Splashing),
+            kind: Some(super::fan::ProcessingType::Splashing),
             time: 39,
         };
         let mut source = Inventory {
@@ -1051,7 +1051,7 @@ mod tests {
         assert_eq!(arrived.angle, 37);
         assert_eq!(
             arrived.fan.kind,
-            Some(crate::fan::ProcessingType::Splashing)
+            Some(super::fan::ProcessingType::Splashing)
         );
         assert_eq!(arrived.fan.time, 39);
         assert_eq!(arrived.position, -0.26);

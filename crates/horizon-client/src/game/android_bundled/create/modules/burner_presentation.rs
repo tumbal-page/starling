@@ -1,15 +1,16 @@
 // Source burner presentation and opt-in observation of the actual client renderer input.
 // No original resources are bundled; models/textures come from the player's pinned JAR.
 use super::Game;
-use super::native_block_entity_draw::BlockEntityDraw;
-use crate::{
-    containers::{BlockEntity, ModBlockEntity, ModRevision},
-    mod_api::{
-        NativeModelMaterial, NativeModelRenderOptions, NativeModelShade, NativeModelUvShift,
-    },
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use crate::game::mod_api::{
+    NativeModelMaterial, NativeModelRenderOptions, NativeModelShade, NativeModelUvShift, ModRevision,
+    ModBlockEntityExt, BlockEntityDrawExt,
+};
+use horizon_client::{
+    containers::{BlockEntity, ModBlockEntity},
     particles::{ParticleOptions, ParticleType},
 };
-use create_engine::{
+use super::create_engine::{
     burner::Heat,
     burner_visual::{self as rules, Animation, FrameInput, Particle, ParticleKind, Visual},
     particles::ParticleRandom,
@@ -58,7 +59,7 @@ impl TraceState {
         // every previously rendered, removed burner until time resumed. Bound
         // this opt-in diagnostic to actual live client entities instead.
         self.entries.retain(|pos, (identity, _)| {
-            live(*pos).is_some_and(|current| identity.same_entity(current))
+            live(*pos).is_some_and(|current| identity.same_entity(&current))
         });
         self.entries
             .insert(pos, (identity, snapshot.clone()))
@@ -108,7 +109,7 @@ impl Client {
         // position or every content revision. A same-ID /data load keeps the
         // BE; removing/replacing it or unloading its chunk does not.
         self.entries.retain(|pos, entry| {
-            live(*pos).is_some_and(|identity| entry.identity.same_entity(identity))
+            live(*pos).is_some_and(|identity| entry.identity.same_entity(&identity))
         });
     }
     fn reload_visuals(&mut self, mut above: impl FnMut([i32; 3]) -> bool) {
@@ -126,7 +127,7 @@ impl Client {
         if self
             .entries
             .get(&pos)
-            .is_some_and(|e| !e.identity.same_entity(identity))
+            .is_some_and(|e| !e.identity.same_entity(&identity))
         {
             self.entries.remove(&pos);
         }
@@ -320,7 +321,7 @@ pub(super) fn burst(game: &mut Game<'_>, pos: [i32; 3], soul: bool) {
 }
 
 fn part(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     draw: &mut BlockEntityDraw,
     model: &str,
     y: f32,
@@ -331,7 +332,7 @@ fn part(
     draw.push();
     draw.translate([0.0, y, 0.0]);
     if let Some(angle) = angle {
-        draw.rotate_about_radians([0.0, 1.0, 0.0], angle, [0.5; 3]);
+        draw.rotate_about_radians(angle, [0.0, 1.0, 0.0], [0.5; 3]);
     }
     game.native_draw_terrain_model(
         draw,
@@ -346,7 +347,7 @@ fn part(
     draw.pop();
 }
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: [i32; 3],
     state: BlockStateId,
     entity: &ModBlockEntity,
@@ -401,8 +402,8 @@ pub(super) fn draw(
         draw.translate([0.0, frame.head_y, 0.0]);
         draw.translate([0.0, 0.75, 0.0]);
         draw.rotate_about_radians(
-            [0.0, 1.0, 0.0],
             frame.angle + std::f32::consts::PI,
+            [0.0, 1.0, 0.0],
             [0.5; 3],
         );
         draw.translate([0.5, 0.0, 0.5]);

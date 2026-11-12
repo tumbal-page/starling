@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 //! AirCurrent.tickAffectedEntities and AllFanProcessingTypes.affectEntity.
 //! Entity mutation, damage mitigation and networking belong to the adapter.
-use crate::fan::{self, ProcessingType};
+use super::fan::{self, ProcessingType};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DamageType {

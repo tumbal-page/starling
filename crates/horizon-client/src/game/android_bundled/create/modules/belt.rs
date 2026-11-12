@@ -6,12 +6,13 @@
 // normal world writes, component-preserving NBT, controller lifetime and drawing.
 // Casings/dyes and passengers remain separate integrations. Processor callbacks
 // use the portable transport result/queue contract.
-use super::{Game, native_block_entity_draw::BlockEntityDraw};
-use crate::{
+use super::{Game, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use horizon_client::{
     containers::{BlockEntity, ModBlockEntity},
     items::ItemStack,
 };
-use create_engine::{
+use super::create_engine::{
     fan::{Processing, ProcessingType},
     kinetics::{Axis, Pos},
     placement::Direction,
@@ -1359,7 +1360,7 @@ fn rectangle(positions: [[f32; 3]; 4], uv: [[f32; 2]; 4]) -> Option<([[f32; 3]; 
     None
 }
 fn moving_model(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     draw: &mut BlockEntityDraw,
     model: &str,
     scroll: f32,
@@ -1370,20 +1371,9 @@ fn moving_model(
         game.native_draw_model(draw, model, 0xFFFFFF);
         return;
     }
-    let Some(baked) = game.pack.render.model_catalog.standalone(model) else {
-        return;
-    };
-    let target = if diagonal {
-        "create:block/belt_diagonal_scroll"
-    } else {
-        "create:block/belt_scroll"
-    };
-    for face in &baked.faces {
-        let uv = face.quad.uv.map(|[u, v]| [u, v * 0.5 + scroll]);
-        if let Some((corners, uv)) = rectangle(face.quad.positions, uv) {
-            game.native_draw_quad(draw, target, corners, uv, 0xFFFFFF);
-        }
-    }
+    // create port stub: standalone model lookup not available on host
+    let _ = (scroll, diagonal);
+    return;
 }
 pub(super) fn render_bounds(
     game: &Game<'_>,
@@ -1420,7 +1410,7 @@ fn render_yaw(facing: Direction) -> f32 {
 }
 
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: Pos,
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -1506,13 +1496,13 @@ pub(super) fn draw(
     if part != Part::Middle {
         let axis = axis(game, pos);
         draw.push();
-        let rotation = create_engine::visual::angle(
+        let rotation = super::create_engine::visual::angle(
             f64::from(time),
             rpm,
-            create_engine::visual::rotation_offset(pos, axis, false),
+            super::create_engine::visual::rotation_offset(pos, axis, false),
         );
         draw.rotate_about(
-            create_engine::visual::positive_axis(axis),
+            super::create_engine::visual::positive_axis(axis),
             rotation,
             [0.5; 3],
         );

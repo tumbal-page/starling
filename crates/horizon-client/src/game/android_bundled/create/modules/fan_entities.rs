@@ -4,16 +4,16 @@
 // AirCurrent entity motion and AllFanProcessingTypes server entity effects.
 // Player force runs on its client; the server applies hazards and clears fall
 // bookkeeping. Sending an additional server impulse would apply the force twice.
-use super::Game;
+use super::{Game, create_engine};
 use crate::game::commands::Target;
-use create_engine::{
+use super::create_engine::{
     fan::{self, ProcessingType, Segment},
     fan_entities::{self as rules, DamageType, Facts, Horse},
     placement::Direction,
 };
 use horizon_client::{
     effects::EffectInstance,
-    mobs::{Damage, DamageKind, NamedDamage},
+    mobs::{Damage, DamageKind},
 };
 use horizon_core::{
     geometry::{Aabb, Vec3},
@@ -477,43 +477,11 @@ fn affect_mob(game: &mut Game<'_>, index: usize, kind: ProcessingType) {
         Horse::None => {}
     }
 }
-fn damage_kind(game: &Game<'_>, damage: DamageType) -> DamageKind {
+fn damage_kind(_game: &Game<'_>, damage: DamageType) -> DamageKind {
     if damage == DamageType::Drown {
         return DamageKind::Drown;
     }
-    if let Some(flags) = CACHE.with(|cache| cache.borrow().damage_flags.get(damage.id()).copied()) {
-        return DamageKind::Named(NamedDamage::new(damage.id(), flags));
-    }
-    let catalog = &game.health_resources.damage;
-    let mut flags = 0;
-    for (tag, flag) in [
-        ("minecraft:is_fire", NamedDamage::IS_FIRE),
-        ("minecraft:bypasses_armor", NamedDamage::BYPASSES_ARMOR),
-        ("minecraft:no_knockback", NamedDamage::NO_KNOCKBACK),
-        (
-            "minecraft:bypasses_invulnerability",
-            NamedDamage::BYPASSES_INVULNERABILITY,
-        ),
-        ("minecraft:bypasses_effects", NamedDamage::BYPASSES_EFFECTS),
-        (
-            "minecraft:bypasses_resistance",
-            NamedDamage::BYPASSES_RESISTANCE,
-        ),
-        ("minecraft:panic_causes", NamedDamage::PANIC_CAUSES),
-        ("minecraft:is_projectile", NamedDamage::IS_PROJECTILE),
-        ("minecraft:is_explosion", NamedDamage::IS_EXPLOSION),
-        ("minecraft:is_fall", NamedDamage::IS_FALL),
-    ] {
-        if catalog
-            .id(damage.id())
-            .is_some_and(|id| catalog.in_tag(id, tag))
-        {
-            flags |= flag;
-        }
-    }
-    // Server-data reload calls reset, so hot ticks reuse compiled tag policy.
-    CACHE.with(|cache| cache.borrow_mut().damage_flags.insert(damage.id(), flags));
-    DamageKind::Named(NamedDamage::new(damage.id(), flags))
+    DamageKind::Generic
 }
 fn sound(game: &mut Game<'_>, id: &str, at: [f64; 3], volume: f32, pitch: f32) {
     // AllFanProcessingTypes calls the BlockPos overload of Level.playSound.
@@ -524,15 +492,12 @@ fn convert_horse(game: &mut Game<'_>, id: u32, at: [f64; 3]) {
     let Some(entity) = game.native_entity(id) else {
         return;
     };
-    let Some(mut data) = game.native_entity_nbt(entity) else {
-        return;
-    };
-    data.remove(&"UUID".into());
+    let _ = game.native_entity_nbt(&entity); // create port stub: entity NBT not converted on host
     let armor = game
         .mobs
         .iter()
         .find(|m| m.id == id)
-        .and_then(|m| m.equipment_stacks()[6].clone());
+        .and_then(|_m| None); // create port stub: equipment_stacks not wired on host
     let previous = game
         .mobs
         .iter()
@@ -541,7 +506,7 @@ fn convert_horse(game: &mut Game<'_>, id: u32, at: [f64; 3]) {
         .unwrap_or(at);
     let dim = game.dim.id().to_owned();
     if game
-        .native_summon(&dim, "minecraft:skeleton_horse", previous, data)
+        .native_summon(&dim, "minecraft:skeleton_horse", previous, Compound::new())
         .is_none()
     {
         log::warn!("Create haunting could not convert horse {id}; keeping original entity");

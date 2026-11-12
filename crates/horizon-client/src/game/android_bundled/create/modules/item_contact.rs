@@ -4,7 +4,7 @@
 // Create 6.0.10 BasinBlock/MillstoneBlock.updateEntityAfterFallOn. Called by
 // the owned ItemEntity movement callback, after the ordinary collision response.
 use super::Game;
-use crate::{
+use horizon_client::{
     containers::{BlockEntity, ModBlockEntity},
     items::ItemStack,
 };

@@ -1001,6 +1001,11 @@ impl EntityObstructionWorld for BuildingObstruction {
     }
 }
 impl GameLevel<'_> {
+    /// Create port stub: native state block lookup on GameLevel.
+    pub(super) fn native_state_block(&self, _state: horizon_world::registry::BlockStateId) -> Option<&str> {
+        None
+    }
+
     /// The living entities that trigger plates and tripwires and don't ignore
     /// block triggers (`Entity.isIgnoringBlockTriggers`: bats and marker armor
     /// stands). Armor stands live apart from `mobs`.
@@ -2142,6 +2147,10 @@ struct Game<'a> {
     backgrounded: bool,
     #[cfg(target_os = "android")]
     surface_lost: bool,
+    #[cfg(target_os = "android")]
+    create_sequence: i32,
+    #[cfg(target_os = "android")]
+    health_resources: crate::game::mod_api::HealthResources,
     res: Arc<Resources>,
     rest_loader: Option<WorldRestLoader>,
     pending_entry: Option<PendingWorldEntry>,
@@ -3040,6 +3049,40 @@ impl Game<'_> {
             p.position.y + f64::from(p.dimensions.eye_height),
             p.position.z,
         ])
+    }
+
+    // --- Create mod port stubs (to be implemented properly) ---
+    pub(super) fn game_dir() -> &'static std::path::Path {
+        std::path::Path::new("")
+    }
+    pub(super) fn award_stat(&mut self, _stat: &str, _value: u32) {}
+    pub(super) fn damage_held_in_slot(&mut self, _slot: i32, _amount: f32) {}
+    pub(super) fn native_physical_window_size(&self) -> Option<[f32; 2]> {
+        None
+    }
+    #[cfg(target_os = "android")]
+    pub(super) fn native_world_quad(
+        &mut self,
+        _draw: &mut crate::game::android_bundled::create::native_world_draw::NativeWorldDraw,
+        _sprite: &str,
+        _corners: [[f32; 3]; 4],
+        _uv: [f32; 4],
+        _color: [u8; 4],
+    ) {
+    }
+    #[cfg(target_os = "android")]
+    pub(super) fn native_world_text(
+        &mut self,
+        _draw: &mut crate::game::android_bundled::create::native_world_draw::NativeWorldDraw,
+        _text: &horizon_client::text::Text,
+        _color: u32,
+        _outline: Option<u32>,
+    ) {
+    }
+    #[cfg(target_os = "android")]
+    pub(in crate::game) fn create_next_sequence(&mut self) -> i32 {
+        self.create_sequence += 1;
+        self.create_sequence
     }
     /// Where targeting starts and points: the eyes along the view. Every
     /// crosshair target (blocks, fluids, entities, mod raycasts) is found
@@ -18483,6 +18526,10 @@ impl<'a> Game<'a> {
             backgrounded: false,
             #[cfg(target_os = "android")]
             surface_lost: false,
+            #[cfg(target_os = "android")]
+            create_sequence: 0,
+            #[cfg(target_os = "android")]
+            health_resources: Default::default(),
             world_biomes: None,
             res: res.clone(),
             rest_loader: None,

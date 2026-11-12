@@ -829,7 +829,7 @@ pub struct NativeScreen {
 /// it is, its menu and title, where its container panel is, how many slots its
 /// menu has, and where the mouse and the frame's partial tick are.
 #[allow(dead_code)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NativeScreenView<'a> {
     /// One id per `Screen` (`Screen::id`): `inventory`, `creative`, `paused`,
     /// `stats`, `options`, `win`… Stable across releases, so a mod can match
@@ -3703,7 +3703,7 @@ impl Game<'_> {
     }
 
     /// Stub for Create mod: reads data map entries for a name.
-    pub(super) fn native_data_map_entries(&self, _category: &str, _name: &str) -> Vec<Value> {
+    pub(super) fn native_data_map_entries(&self, _category: &str, _name: &str) -> Vec<(String, Value)> {
         Vec::new()
     }
 

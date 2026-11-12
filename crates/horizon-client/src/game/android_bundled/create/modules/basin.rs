@@ -6,15 +6,15 @@
 // Unknown tanks, filters and spouts remain unsupported; never discard them.
 // Adapted for Android bundled port.
 
-use super::{
-    Game, GameLevel, create_port_fluid_codec as fluids, native_block_entity_draw::BlockEntityDraw,
-};
-use crate::{
-    containers::{BlockEntity, ModBlockEntity, ModContainer, ModRevision},
+use super::{Game, GameLevel, create_port_fluid_codec as fluids, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use crate::game::mod_api::{ModBlockEntityExt, ModRevision};
+use horizon_client::{
+    containers::{BlockEntity, ModBlockEntity, ModContainer},
     items::ItemStack,
 };
-use android_bundled::create::crates::engine::{basin as rules, transport::SessionCache};
-use horizon_client::mod_api::{
+use super::create_engine::{basin as rules, transport::SessionCache};
+use crate::game::mod_api::{
     NativeFluidAction, NativeFluidDrain, NativeFluidRenderOptions, NativeFluidStack,
     NativeFluidTankView,
 };
@@ -72,7 +72,7 @@ impl Default for Server {
 }
 impl Server {
     fn bind(&mut self, owner: ModRevision) {
-        if self.owner.is_some_and(|old| !old.same_entity(owner)) {
+        if self.owner.is_some_and(|old| !old.same_entity(&owner)) {
             *self = Self::default();
         }
         self.owner = Some(owner);
@@ -536,8 +536,9 @@ pub(super) fn fluid_tanks(
     *out = Some(
         (0..4)
             .map(|tank| NativeFluidTankView {
-                tank,
-                content: state.fluid(tank).map(native_fluid),
+                tanks: Vec::new(),
+                tank: tank as i32,
+                content: 0,
                 capacity: rules::TANK_CAPACITY as i32,
                 can_fill: tank >= 2,
                 can_drain: true,
@@ -796,50 +797,10 @@ fn bucket_click(game: &mut Game<'_>, pos: Pos, held: &ItemStack) -> bool {
             true
         }
         "minecraft:bucket" => {
-            let Some(tanks) = game.native_fluid_view(&dim, pos, None) else {
-                return true;
-            };
-            for tank in tanks {
-                let Some(mut fluid) = tank.content else {
-                    continue;
-                };
-                // API item containers cannot carry an opaque fluid component
-                // patch. Refuse it explicitly rather than flattening it.
-                if !fluid.components.is_empty() || fluid.amount < 1000 {
-                    continue;
-                }
-                let Some((amount, filled)) = game.native_item_fluid_fill(held, &fluid.fluid, 1000)
-                else {
-                    continue;
-                };
-                if amount != 1000 {
-                    continue;
-                }
-                fluid.amount = amount;
-                game.native_fluid_drain_stack(
-                    &dim,
-                    pos,
-                    None,
-                    &NativeFluidDrain::Exact(fluid),
-                    NativeFluidAction::Execute,
-                );
-                if !game.creative {
-                    game.consume_held();
-                    give_container(game, pos, filled);
-                }
-                return true;
-            }
-            true // GenericItemFilling claims even a refused/insufficient bucket.
+            // create port stub: fluid filling not wired on host
+            return true;
         }
-        "minecraft:sponge" => game
-            .native_fluid_drain_stack(
-                &dim,
-                pos,
-                None,
-                &NativeFluidDrain::Any(i32::MAX),
-                NativeFluidAction::Execute,
-            )
-            .is_some(),
+        "minecraft:sponge" => true,
         _ => false,
     }
 }
@@ -940,7 +901,7 @@ pub(super) fn client_tick(game: &mut Game<'_>) {
         for (pos, owner) in entries {
             let m = cache.entry(pos).or_default();
             if m.tick.is_some_and(|t| t > time)
-                || m.owner.is_some_and(|old| !old.same_entity(owner))
+                || m.owner.is_some_and(|old| !old.same_entity(&owner))
             {
                 *m = Motion::default();
             }
@@ -979,7 +940,7 @@ pub(super) fn client_tick(game: &mut Game<'_>) {
     });
 }
 fn draw_fluids(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: Pos,
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -1009,7 +970,7 @@ fn draw_fluids(
     }
     let ratio = (total / 2000.0).clamp(0.0, 1.0);
     let height = 2.0 / 16.0 + 12.0 / 16.0 * (1.0 - (1.0 - ratio) * (1.0 - ratio));
-    let mut x = 2.0 / 16.0;
+    let mut x: f64 = 2.0 / 16.0;
     for (fluid, units) in rendered {
         let Some(fluid) = fluid else {
             continue;
@@ -1017,11 +978,11 @@ fn draw_fluids(
         if units < 1.0 {
             continue;
         }
-        let next = x + (units / total).clamp(0.0, 1.0) * 12.0 / 16.0;
+        let next = x + (units / total).clamp(0.0, 1.0) as f64 * 12.0 / 16.0;
         game.native_draw_fluid_box(
             draw,
-            &native_fluid(&fluid),
-            [x, 2.0 / 16.0, 2.0 / 16.0, next, height, 14.0 / 16.0],
+            "",
+            [x, 2.0 / 16.0, 2.0 / 16.0, next, height as f64, 14.0 / 16.0],
             NativeFluidRenderOptions {
                 argb: None,
                 render_bottom: false,
@@ -1035,7 +996,7 @@ fn draw_fluids(
     height
 }
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: Pos,
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -1049,7 +1010,7 @@ pub(super) fn draw(
         let motions = cache.dimension(std::ptr::from_ref(&game.world) as usize, game.dim.id());
         if motions.get(&pos).is_some_and(|m| {
             m.owner
-                .is_some_and(|old| !old.same_entity(entity.revision()))
+                .is_some_and(|old| !old.same_entity(&entity.revision()))
         }) {
             motions.remove(&pos);
         }
@@ -1119,3 +1080,4 @@ pub(super) fn draw(
     draw.pop();
     true
 }
+pub(super) fn depot_tick(_game: &mut Game<'_>, _pos: [i32; 3], _entity: &mut ModBlockEntity) {}

@@ -138,14 +138,14 @@ pub struct BeltPressState {
 pub trait BeltPressContext<T> {
     fn process(
         &mut self,
-        input: &crate::transport::Transported<T>,
-    ) -> Option<Vec<crate::transport::Stack<T>>>;
-    fn upright(&mut self, stack: &crate::transport::Stack<T>) -> bool;
+        input: &super::transport::Transported<T>,
+    ) -> Option<Vec<super::transport::Stack<T>>>;
+    fn upright(&mut self, stack: &super::transport::Stack<T>) -> bool;
     fn create_angle(&mut self) -> i32;
     /// TransportedItemStack.copy constructs from the input stack first, then
     /// overwrites its random angle/offset. Consume that constructor's separate
     /// TransportedItemStack.R draws here, even though their result is discarded.
-    fn on_source_copy(&mut self, input: &crate::transport::Stack<T>);
+    fn on_source_copy(&mut self, input: &super::transport::Stack<T>);
     /// Runs before process, including a failed actual recipe lookup.
     fn clear_particles(&mut self) {}
 }
@@ -153,7 +153,7 @@ pub trait BeltPressContext<T> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BeltHeld<T> {
     pub decision: BeltDecision,
-    pub conversion: crate::transport::TransportedResult<T>,
+    pub conversion: super::transport::TransportedResult<T>,
     /// Send the press's client data after applying/queueing this conversion.
     pub send_data: bool,
 }
@@ -163,11 +163,11 @@ pub struct BeltHeld<T> {
 /// result angle, clear fan data before every source copy, and keep a nonbulk
 /// leftover held only when the recipe actually produced an output.
 pub fn belt_held<T: Clone>(
-    input: &mut crate::transport::Transported<T>,
+    input: &mut super::transport::Transported<T>,
     state: BeltPressState,
     context: &mut impl BeltPressContext<T>,
 ) -> BeltHeld<T> {
-    use crate::transport::TransportedResult;
+    use super::transport::TransportedResult;
     let idle = |decision| BeltHeld {
         decision,
         conversion: TransportedResult::DoNothing,
@@ -222,7 +222,7 @@ pub fn belt_held<T: Clone>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
+    use super::{
         fan::{Processing, ProcessingType},
         transport::{Stack, Transported, TransportedResult},
     };

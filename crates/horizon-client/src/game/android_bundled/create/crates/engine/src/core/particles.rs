@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 //! Create-specific particle controllers. Vanilla particle construction, lighting,
 //! sprite-atlas lookup and rendering remain the platform adapter's responsibility.
-use crate::{
+use super::{
     fan::{self, ProcessingType, Segment},
     kinetics::Axis,
     placement::Direction,
