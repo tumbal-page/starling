@@ -280,7 +280,7 @@ use super::{
     native_panel_recipes::RecipePage,
     native_server::{NativeCommand, NativeServerPlayer},
 };
-use crate::mod_api::{
+use crate::game::mod_api::{
     NativeCamera, NativeEntity, NativeFluidAction, NativeFluidDrain,
     NativeFluidRenderOptions, NativeFluidStack, NativeFluidTankView, NativeModelMaterial,
     NativeModelRenderOptions, NativeModelShade, NativeModelUvShift,
@@ -3725,34 +3725,6 @@ impl Game<'_> {
         None
     }
 
-    /// Stub for Create mod: returns the physical window size in pixels.
-    #[cfg(target_os = "android")]
-    pub(super) fn native_physical_window_size(&self) -> Option<[f32; 2]> {
-        None
-    }
-
-    /// Stub for Create mod: draws a textured quad in the world.
-    #[cfg(target_os = "android")]
-    pub(super) fn native_world_quad(
-        &mut self,
-        _draw: &mut super::android_bundled::create::native_world_draw::NativeWorldDraw,
-        _sprite: &str,
-        _corners: [[f32; 3]; 4],
-        _uv: [f32; 4],
-        _color: [u8; 4],
-    ) {
-    }
-
-    /// Stub for Create mod: draws text in the world.
-    #[cfg(target_os = "android")]
-    pub(super) fn native_world_text(
-        &mut self,
-        _draw: &mut super::android_bundled::create::native_world_draw::NativeWorldDraw,
-        _text: &horizon_client::text::Text,
-        _color: u32,
-        _outline: Option<u32>,
-    ) {
-    }
 }
 
 /// A mob's kind as the hook points name it (`minecraft:zombie`).

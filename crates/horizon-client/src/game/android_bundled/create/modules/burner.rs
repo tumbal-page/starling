@@ -51,7 +51,7 @@ pub(super) fn stateful(block: &str, owns: &mut bool) {
 }
 pub(super) fn entity(
     block: &str,
-    properties: &crate::mod_api::BlockProperties,
+    properties: &crate::game::mod_api::BlockProperties,
     out: &mut Option<(String, Compound)>,
 ) {
     if out.is_some()
