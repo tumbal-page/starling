@@ -7,7 +7,7 @@
 // Adapted for Android bundled port.
 
 use super::{Game, native_world_draw::NativeWorldDraw};
-use crate::containers::BlockEntity;
+use horizon_client::containers::BlockEntity;
 use horizon_world::nbt::Tag;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -111,7 +111,7 @@ impl Plan {
         let light = draw.light;
         draw.light = FULL_BRIGHT;
         draw.push();
-        draw.translate(self.offset());
+        draw.translate(self.offset().map(f64::from));
         let [yaw, pitch, roll] = self.rotation();
         draw.rotate_about([0.0, 1.0, 0.0], yaw, [0.0; 3]);
         draw.rotate_about([1.0, 0.0, 0.0], pitch, [0.0; 3]);
@@ -145,8 +145,8 @@ impl Plan {
         let margin = (width - 9) as f32 / 2.0;
         draw.scale([scale; 3]);
         draw.translate([
-            if single { (width / 2) as f32 } else { 0.0 },
-            if single { -margin } else { margin },
+            if single { (width / 2) as f64 } else { 0.0 },
+            if single { -margin as f64 } else { margin as f64 },
             0.0,
         ]);
         canvas.text(draw, &self.text, 0xffed_eded, 0xff33_3333);
@@ -168,7 +168,7 @@ pub(super) trait Canvas {
     );
     fn text(&mut self, draw: &mut NativeWorldDraw, text: &str, color: u32, outline: u32);
 }
-struct NativeCanvas<'a, 'g>(&'a Game<'g>);
+struct NativeCanvas<'a, 'g>(&'a mut Game<'g>);
 impl Canvas for NativeCanvas<'_, '_> {
     fn quad(
         &mut self,
@@ -200,12 +200,18 @@ impl Canvas for NativeCanvas<'_, '_> {
         );
     }
 }
-pub(super) fn render(game: &Game<'_>, draw: &mut NativeWorldDraw) {
+pub(super) fn render(game: &mut Game<'_>, draw: &mut NativeWorldDraw) {
+    let plan_data: Vec<(Plan, i32)> = plans(game)
+        .into_iter()
+        .map(|plan| {
+            let width = game.gui.atlas.font.width(&plan.text).ceil() as i32;
+            (plan, width)
+        })
+        .collect();
     let mut canvas = NativeCanvas(game);
-    for plan in plans(game) {
+    for (plan, width) in plan_data {
         draw.push();
         if draw.translate_world(plan.pos.map(f64::from)) {
-            let width = game.gui.atlas.font.width(&plan.text).ceil() as i32;
             plan.render(draw, width, &mut canvas);
         }
         draw.pop();

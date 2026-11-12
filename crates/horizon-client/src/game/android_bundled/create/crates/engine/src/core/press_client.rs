@@ -4,7 +4,7 @@
 // PressingBehaviour client read/start/tick/getRenderedHeadOffset/spawnParticles,
 // Create ac0c444d9828da3453ae8cc65338e8de063286fb. Platform receipt, item
 // decoding, particle admission and actual client BE ticking remain in adapters.
-use crate::particles::ParticleRandom;
+use super::super::particles::ParticleRandom;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(i32)]
@@ -154,7 +154,7 @@ impl<T> PressClient<T> {
             for _ in 0..count {
                 // VecHelper.offsetRandomly draws x, y, z, even though multiply
                 // (1,0,1) discards the middle component immediately afterward.
-                let [vx, _, vz] = crate::particles::offset_randomly(context, spread);
+                let [vx, _, vz] = super::super::particles::offset_randomly(context, spread);
                 context.emit(
                     item,
                     [x, y, z],

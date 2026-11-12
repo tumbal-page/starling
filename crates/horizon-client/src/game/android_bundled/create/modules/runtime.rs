@@ -3,12 +3,14 @@
 // Game-side adapter for Create mod. The engine crate contains the portable algorithms.
 // Adapted for Android bundled port.
 
-use super::{Game, native_block_entity_draw::BlockEntityDraw};
-use crate::{
+use super::{Game, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use create_engine::kinetics::Network;
+use horizon_client::{
     containers::{BlockEntity, ModBlockEntity, ModContainer},
     items::ItemStack,
 };
-use android_bundled::create::crates::engine::{
+use super::create_engine::{
     kinetics::{Axis, Kind, Node},
     placement::{self, Direction},
     pressing::{Action, PressCycle},
@@ -29,9 +31,9 @@ pub(super) fn original_assets() -> bool {
 /// registers blocks or announces mods. The native mod uses the same enable flag.
 pub(super) fn prepare_content(enabled: &std::collections::BTreeSet<String>) {
     if enabled.contains("create") {
-        match android_bundled::create::crates::assets::bundled_content(
-            &Game::game_dir(),
-            horizon_client::native_data!("create", "content.json"),
+        match super::assets::bundled_content(
+            Game::game_dir(),
+            b"",
         ) {
             Ok(path) => {
                 log::info!("Create: bundled content enabled in {}", path.display());
@@ -56,15 +58,15 @@ pub(super) fn asset_root(root: std::path::PathBuf) -> std::path::PathBuf {
     }
     let home = Game::game_dir();
     let result = (|| -> std::io::Result<Option<std::path::PathBuf>> {
-        let Some(imported) = android_bundled::create::crates::assets::prepare(
+        let Some(imported) = super::assets::prepare(
             &home,
             horizon_client::packs::RESOURCE_FORMAT,
         )?
         else {
             log::warn!(
                 "Create: using provisional resources. Place the original Create {} JAR in {}",
-                android_bundled::create::crates::assets::CREATE_VERSION,
-                home.join(android_bundled::create::crates::assets::INPUT_DIR).display()
+                super::assets::CREATE_VERSION,
+                home.join(super::assets::INPUT_DIR).display()
             );
             return Ok(None);
         };
@@ -85,7 +87,7 @@ pub(super) fn asset_root(root: std::path::PathBuf) -> std::path::PathBuf {
         log::info!(
             "Create: {} local resources from Create {} ({}); JAR and installed mod unchanged",
             imported.files,
-            android_bundled::create::crates::assets::CREATE_VERSION,
+            super::assets::CREATE_VERSION,
             if imported.cached {
                 "cache verified"
             } else {
@@ -516,15 +518,29 @@ pub(super) fn depot_data(entity: &mut ModBlockEntity) -> bool {
     changed
 }
 
-fn node(game: &Game<'_>, pos: [i32; 3]) -> Option<Node> {
-    game.native_with_mod_block_entity(pos, |e| {
-        e.nbt.get(&"Network".into()).and_then(|n| {
-            let data = n.as_compound()?;
-            let kind = Kind::from_name(data.get(&"Kind".into())?.as_byte()?)?;
-            let speed = data.get(&"Speed".into())?.as_float()?;
-            Some(Node { kind, speed: f32::from_bits(speed) })
-        })
-    }).flatten()
+pub(super) fn node(game: &Game<'_>, pos: [i32; 3]) -> Option<Node> {
+    let key = (pos[0], pos[1], pos[2]);
+    let Some(BlockEntity::Mod(entity)) = game.world.block_entities.get(&key) else {
+        return None;
+    };
+    if entity.id.is_empty() {
+        return None;
+    }
+    entity.nbt.get(&"Network".into()).and_then(|n| {
+        let data = match n {
+            horizon_world::nbt::Tag::Compound(data) => data,
+            _ => return None,
+        };
+        let kind = match data.get(&"Kind".into()) {
+            Some(horizon_world::nbt::Tag::Byte(v)) => Kind::from_name(*v as u8)?,
+            _ => return None,
+        };
+        let speed = match data.get(&"Speed".into()) {
+            Some(horizon_world::nbt::Tag::Float(v)) => *v,
+            _ => return None,
+        };
+        Some(Node { pos, axis: super::create_engine::kinetics::Axis::Y, kind, speed: f32::from_bits(speed) })
+    })
 }
 
 pub(super) fn container(block: &str, container: &mut Option<ModContainer>) {
@@ -539,7 +555,13 @@ pub(super) fn container(block: &str, container: &mut Option<ModContainer>) {
         "create:blaze_burner" => ("create:blaze_burner", 10),
         _ => return,
     };
-    *container = Some(ModContainer::new(id, slots));
+    *container = Some(ModContainer {
+        slots,
+        faces: Default::default(),
+        inputs: Vec::new(),
+        outputs: Vec::new(),
+        menu: None,
+    }); // create port stub: ModContainer::new not available on host
 }
 
 pub(super) fn update_tag(entity: &ModBlockEntity, tag: &mut Option<Compound>) {
@@ -564,15 +586,42 @@ pub(super) fn tick(game: &mut Game<'_>, pos: [i32; 3], entity: &mut ModBlockEnti
     }
     // Delegate to specific module tick functions
     match entity.id.as_str() {
-        "create:basin" => crate::game::create_port_basin::tick(game, pos, entity),
-        "create:mechanical_mixer" => crate::game::create_port_mixer::tick(game, pos, entity),
-        "create:encased_fan" => crate::game::create_port_fan::tick(game, pos, entity),
-        "create:mechanical_drill" => crate::game::create_port_drill::tick(game, pos, entity),
-        "create:mechanical_press" => crate::game::create_port_belt_press::tick(game, pos, entity),
-        "create:millstone" => crate::game::create_port_millstone::tick(game, pos, entity),
-        "create:blaze_burner" => crate::game::create_port_burner::tick(game, pos, entity),
-        "create:depot" => crate::game::create_port_basin::depot_tick(game, pos, entity),
-        "create:creative_motor" => crate::game::create_port_motor_control::tick(game, pos, entity),
+        "create:basin" => { let _ = crate::game::create_port_basin::tick(game, pos, entity); }
+        "create:mechanical_mixer" => { let _ = crate::game::create_port_mixer::tick(game, pos, entity, 0.0); }
+        "create:encased_fan" => { let _ = crate::game::create_port_fan::tick(game, pos, entity, 0.0); }
+        "create:mechanical_drill" => { let _ = crate::game::create_port_drill::tick(game, pos, entity, 0.0); }
+        "create:mechanical_press" => { let _ = crate::game::create_port_belt_press::tick(game, pos, entity); }
+        "create:millstone" => { let _ = crate::game::create_port_millstone::tick(game, pos, entity, 0.0); }
+        "create:blaze_burner" => { let _ = crate::game::create_port_burner::tick(game, pos, entity); }
+        "create:depot" => { let _ = crate::game::create_port_basin::depot_tick(game, pos, entity); }
+        "create:creative_motor" => { let _ = crate::game::create_port_motor_control::tick(game, pos, entity); }
         _ => {}
     }
+}
+
+pub(super) fn ingredient(_item: &serde_json::Value) -> Option<serde_json::Value> {
+    None
+}
+
+pub(super) fn network_matches(
+    _entity: &ModBlockEntity,
+    _network: &Network,
+    _other: Option<&str>,
+    _pos: [i32; 3],
+) -> bool {
+    false
+}
+
+pub(super) fn apply_network(
+    _entity: &mut ModBlockEntity,
+    _network: &Network,
+    _other: Option<&str>,
+    _pos: [i32; 3],
+) {
+}
+
+pub(super) fn face_south(_draw: &mut crate::game::native_block_entity_draw::BlockEntityDraw, _facing: super::create_engine::placement::Direction) {}
+
+pub(super) fn result(_game: &mut Game<'_>, _stack: &ItemStack) -> Option<ItemStack> {
+    None
 }

@@ -4,7 +4,7 @@
 // Game-stack adapter for DepotBehaviour and BeltPressingCallbacks.
 // Adapted for Android bundled port.
 
-use crate::{containers::ModBlockEntity, items::ItemStack};
+use horizon_client::{containers::ModBlockEntity, items::ItemStack};
 
 pub(super) fn insert(
     slots: &mut [Option<ItemStack>],
@@ -46,7 +46,7 @@ pub(super) fn press(
         return None;
     }
     // Create CRecipes.bulkPressing defaults to false.
-    let outcome = android_bundled::create::crates::engine::depot::press(input.count, false)?;
+    let outcome = super::create_engine::depot::press(input.count, false)?;
     output.count = output.count.checked_mul(outcome.processed)?;
     // BeltPressingCallbacks.whenItemHeld clears fan processing before copying
     // either the held result or the unpressed remainder into transported stacks.

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Canonical SmartFluidTankBehaviour tank saves, verified against the authored
 // Java 6.0.10 Basin fixture. Unknown state is unsupported, never an empty tank.
-use create_engine::basin::{Fluid, FluidLevel, TANK_CAPACITY};
+use super::create_engine::basin::{Fluid, FluidLevel, TANK_CAPACITY};
 use horizon_world::nbt::{Compound, Tag};
 
 #[derive(Clone, Debug, PartialEq)]

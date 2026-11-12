@@ -1,7 +1,7 @@
 // Pinned to the type/block/compound validation in remote_block_entity_data.
 // This runs before its ordinary NBT merge and hydrates canonical owned slots.
 use super::Game;
-use crate::containers::BlockEntity;
+use horizon_client::containers::BlockEntity;
 use horizon_world::nbt::Tag;
 
 pub(super) fn packet(game: &mut Game<'_>, pos: [i32; 3], kind: i32, tag: &Tag) {
@@ -22,5 +22,7 @@ pub(super) fn packet(game: &mut Game<'_>, pos: [i32; 3], kind: i32, tag: &Tag) {
     else {
         return;
     };
-    horizon_client::save::create_inventory_codec::receive(entity, name, block, tag);
+    // create port stub: inventory codec not wired on host; entity data handled
+    // by ordinary block entity NBT merge instead.
+    let _ = (entity, name, block, tag);
 }

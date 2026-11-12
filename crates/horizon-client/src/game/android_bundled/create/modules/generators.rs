@@ -2,10 +2,11 @@
 // Copyright (c) 2026 create-horizon contributors
 // SPDX-License-Identifier: MIT
 // WaterWheelBlockEntity and LargeWaterWheelBlock's physical structural ring.
-use super::{Game, native_block_entity_draw::BlockEntityDraw};
-use crate::containers::ModBlockEntity;
+use super::{Game, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use horizon_client::containers::ModBlockEntity;
 use crate::game::create_port::{integer, number};
-use create_engine::{
+use super::create_engine::{
     kinetics::{Axis, Pos},
     placement::Direction,
     waterwheel,
@@ -106,7 +107,7 @@ pub(super) fn tick(
                 set(game, pos, "minecraft:air", None);
                 if initialized {
                     game.spawn_item(
-                        crate::items::ItemStack::new(block, 1),
+                        horizon_client::items::ItemStack::new(block, 1),
                         pos.map(|v| f64::from(v) + 0.5),
                         [0.0; 3],
                         10,
@@ -201,7 +202,7 @@ fn flow(game: &Game<'_>, p: Pos) -> [f64; 3] {
     [value.x, value.y, value.z]
 }
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: Pos,
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -227,15 +228,15 @@ pub(super) fn draw(
     let wood = name
         .strip_prefix("minecraft:")
         .and_then(|s| s.strip_suffix("_planks"))
-        .filter(|s| create_assets::WOODS.contains(s))
+        .filter(|s| crate::game::android_bundled::create::assets::WOODS.contains(s))
         .unwrap_or("spruce");
     draw.push();
-    let angle = create_engine::visual::angle(
+    let angle = super::create_engine::visual::angle(
         draw.game_time as f64 + f64::from(draw.partial),
         number(&entity.nbt, "Speed"),
-        create_engine::visual::rotation_offset(pos, axis, false),
+        super::create_engine::visual::rotation_offset(pos, axis, false),
     );
-    draw.rotate_about(create_engine::visual::positive_axis(axis), angle, [0.5; 3]);
+    draw.rotate_about(super::create_engine::visual::positive_axis(axis), angle, [0.5; 3]);
     match axis {
         Axis::X => draw.rotate_about([0.0, 0.0, 1.0], -90.0, [0.5; 3]),
         Axis::Z => draw.rotate_about([1.0, 0.0, 0.0], 90.0, [0.5; 3]),

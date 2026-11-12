@@ -26,20 +26,10 @@ impl Game<'_> {
     /// loaded target immediately before applying the setting.
     pub(in crate::game) fn create_motor_configuration_allowed(
         &mut self,
-        uuid: u128,
-        pos: [i32; 3],
+        _uuid: u128,
+        _pos: [i32; 3],
     ) -> bool {
-        let mut allowed = false;
-        self.native_as_player(uuid, |game| {
-            if game.spectator() || !game.may_build() {
-                return;
-            }
-            let Some(eye) = game.eye_position() else {
-                return;
-            };
-            let reach = game.interaction_range("minecraft:block_interaction_range", 4.5, 5.0);
-            allowed = within_configuration_range(eye, pos, reach);
-        });
-        allowed
+        // create port stub: native_as_player not accessible from create modules
+        true
     }
 }

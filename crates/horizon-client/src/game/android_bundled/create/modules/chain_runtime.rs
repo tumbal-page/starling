@@ -5,7 +5,7 @@
 // Adapted for Android bundled port.
 
 use super::{Game, GameLevel};
-use android_bundled::create::crates::engine::{
+use super::create_engine::{
     chain_drive::{self, Part, State},
     kinetics::Axis,
     placement::Direction,

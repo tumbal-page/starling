@@ -56,7 +56,7 @@ pub enum Kind {
     /// Enclosed chains link along their state-defined connection axis at 1:1,
     /// including links between different shaft axes (ChainDriveBlock).
     Chain {
-        state: crate::chain_drive::State,
+        state: super::chain_drive::State,
     },
     Clutch {
         powered: bool,
@@ -65,11 +65,31 @@ pub enum Kind {
         powered: bool,
     },
 }
+
+impl Kind {
+    pub fn from_name(b: u8) -> Option<Self> {
+        match b {
+            0 => Some(Self::Shaft),
+            1 => Some(Self::Motor { facing: [0, 0, 0], rpm: 0.0, capacity: 0.0 }),
+            2 => Some(Self::WaterWheel { rpm: 0.0, capacity: 0.0 }),
+            3 => Some(Self::Cog { large: false }),
+            4 => Some(Self::Press),
+            5 => Some(Self::Millstone),
+            6 => Some(Self::Mixer),
+            7 => Some(Self::Gearbox),
+            8 => Some(Self::Chain { state: super::chain_drive::State::default() }),
+            9 => Some(Self::Clutch { powered: false }),
+            10 => Some(Self::Gearshift { powered: false }),
+            _ => None,
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Node {
     pub pos: Pos,
     pub axis: Axis,
     pub kind: Kind,
+    pub speed: f32,
 }
 impl Node {
     pub fn shaft_port(self, delta: Pos) -> bool {
@@ -134,7 +154,7 @@ pub fn ratio(from: Node, to: Node) -> Option<f32> {
     }
     if distance == 1
         && let (Kind::Chain { state: a }, Kind::Chain { state: b }) = (from.kind, to.kind)
-        && let Some(direction) = crate::placement::Direction::from_vector(delta)
+        && let Some(direction) = super::placement::Direction::from_vector(delta)
         && a.connected(b, direction)
     {
         return Some(1.0);
@@ -434,7 +454,7 @@ mod tests {
 
     #[test]
     fn enclosed_chain_transmits_without_inversion_between_different_shaft_axes() {
-        use crate::chain_drive::{Part, State};
+        use super::chain_drive::{Part, State};
         let nodes = [
             motor([0, 0, 0], -32.0, 16384.0),
             Node {
@@ -484,7 +504,7 @@ mod tests {
 
     #[test]
     fn enclosed_chain_uses_shaft_ports_and_does_not_mesh_with_cogs() {
-        use crate::chain_drive::State;
+        use super::chain_drive::State;
         let chain = Node {
             pos: [0, 0, 0],
             axis: Axis::X,

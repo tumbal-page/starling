@@ -6,11 +6,16 @@
 pub struct NativeWorldDraw {
     /// Current light level for shading.
     pub light: u32,
+    /// Partial tick for interpolation.
+    pub partial: f32,
 }
 
 impl NativeWorldDraw {
     /// Pushes the current transform onto the stack.
     pub fn push(&mut self) {}
+
+    /// Pops the current transform from the stack.
+    pub fn pop(&mut self) {}
 
     /// Translates the current transform by `offset`.
     pub fn translate(&mut self, _offset: [f64; 3]) {}

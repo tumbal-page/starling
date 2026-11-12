@@ -2,7 +2,7 @@
 // Copyright (c) 2026 create-horizon contributors
 // SPDX-License-Identifier: MIT
 //! Source: IAirCurrentSource, AirCurrent, FanProcessing, EncasedFanRenderer.
-use crate::placement::Direction;
+use super::placement::Direction;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProcessingType {
@@ -39,7 +39,7 @@ pub struct Medium {
     pub campfire: bool,
     pub lit: Option<bool>,
     pub flame_soul: Option<bool>,
-    pub heat: Option<crate::burner::Heat>,
+    pub heat: Option<super::burner::Heat>,
 }
 impl Medium {
     pub fn accepts(self, kind: ProcessingType) -> bool {
@@ -52,7 +52,7 @@ impl Medium {
         }
         match kind {
             ProcessingType::Splashing => true,
-            ProcessingType::Blasting => self.heat.is_none_or(|h| h >= crate::burner::Heat::Fading),
+            ProcessingType::Blasting => self.heat.is_none_or(|h| h >= super::burner::Heat::Fading),
             ProcessingType::Haunting => {
                 !(self.campfire && self.lit == Some(false)) && self.flame_soul.is_none_or(|s| s)
             }
@@ -61,7 +61,7 @@ impl Medium {
                     && self.flame_soul.is_none_or(|s| !s)
                     && self
                         .heat
-                        .is_none_or(|h| h == crate::burner::Heat::Smouldering)
+                        .is_none_or(|h| h == super::burner::Heat::Smouldering)
             }
         }
     }
@@ -141,22 +141,22 @@ impl Processing {
 /// FanProcessing.applyProcessing(TransportedItemStack): recipes and the private
 /// TransportedItemStack constructor random source belong to the adapter.
 pub trait TransportedContext<T> {
-    fn can_process(&mut self, stack: &crate::transport::Stack<T>, kind: ProcessingType) -> bool;
+    fn can_process(&mut self, stack: &super::transport::Stack<T>, kind: ProcessingType) -> bool;
     fn process(
         &mut self,
-        stack: &crate::transport::Stack<T>,
+        stack: &super::transport::Stack<T>,
         kind: ProcessingType,
-    ) -> Option<Vec<crate::transport::Stack<T>>>;
+    ) -> Option<Vec<super::transport::Stack<T>>>;
     /// getSimilar constructs with the original input stack before replacing it
     /// with a copied recipe result. Upright/package rules therefore use input.
-    fn similar_angle(&mut self, input: &crate::transport::Stack<T>) -> i32;
+    fn similar_angle(&mut self, input: &super::transport::Stack<T>) -> i32;
 }
 pub fn process_transported<T: Clone>(
-    item: &mut crate::transport::Transported<T>,
+    item: &mut super::transport::Transported<T>,
     kind: ProcessingType,
     context: &mut impl TransportedContext<T>,
-) -> crate::transport::TransportedResult<T> {
-    use crate::transport::TransportedResult;
+) -> super::transport::TransportedResult<T> {
+    use super::transport::TransportedResult;
     let can_process = item.fan.kind != Some(kind) && context.can_process(&item.stack, kind);
     if !item.fan.transported(kind, item.stack.count, can_process) {
         return TransportedResult::DoNothing;
@@ -289,7 +289,7 @@ pub fn accelerated(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transport::{Inventory, Stack, Transported, TransportedResult};
+    use super::transport::{Inventory, Stack, Transported, TransportedResult};
 
     struct Context {
         valid: bool,

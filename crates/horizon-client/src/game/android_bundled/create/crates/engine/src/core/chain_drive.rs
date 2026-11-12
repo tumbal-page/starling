@@ -4,7 +4,7 @@
 //! ChainDriveBlock state, placement and connections; ChainDriveGenerator poses.
 //! World access, kinetic block entities and drawing stay in the native adapter.
 
-use crate::{kinetics::Axis, placement::Direction};
+use super::{kinetics::Axis, placement::Direction};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Part {
@@ -195,7 +195,7 @@ pub fn placement(
     let axis = if sneaking {
         look.axis()
     } else {
-        crate::placement::preferred(shaft_ports).map_or(look.axis(), Direction::axis)
+        super::placement::preferred(shaft_ports).map_or(look.axis(), Direction::axis)
     };
     State::new(axis).rebuild(neighbors)
 }

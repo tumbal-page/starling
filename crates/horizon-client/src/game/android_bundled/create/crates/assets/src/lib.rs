@@ -495,8 +495,7 @@ fn collect(bytes: Vec<u8>) -> io::Result<BTreeMap<String, Vec<u8>>> {
     }
     let mut names = BTreeSet::new();
     for name in zip.file_names() {
-        let name = name.map_err(|e| invalid(e.to_string()))?;
-        if !safe_path(name.trim_end_matches('/')) || !names.insert(name.clone().into_owned()) {
+        if !safe_path(name.trim_end_matches('/')) || !names.insert(name.to_owned()) {
             return Err(invalid(format!("Unsafe or duplicate JAR entry: {name}")));
         }
     }
@@ -540,9 +539,8 @@ fn collect(bytes: Vec<u8>) -> io::Result<BTreeMap<String, Vec<u8>>> {
     let locales: Vec<String> = reader
         .zip
         .file_names()
-        .filter_map(Result::ok)
         .filter(|name| name.starts_with("assets/create/lang/") && name.ends_with(".json"))
-        .map(|name| name.into_owned())
+        .map(|name| name.to_owned())
         .collect();
     for locale in locales {
         reader.json(&locale)?;
@@ -573,9 +571,8 @@ fn collect(bytes: Vec<u8>) -> io::Result<BTreeMap<String, Vec<u8>>> {
     let sounds: Vec<String> = reader
         .zip
         .file_names()
-        .filter_map(Result::ok)
         .filter(|name| name.starts_with("assets/create/sounds/") && name.ends_with(".ogg"))
-        .map(|name| name.into_owned())
+        .map(|name| name.to_owned())
         .collect();
     for sound in sounds {
         let bytes = reader.read(&sound)?;

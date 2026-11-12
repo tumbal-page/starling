@@ -2,8 +2,31 @@
 // SPDX-License-Identifier: MIT
 // Exact-pinned adapter inside game/remote.rs. Only recognized burner actions
 // own this turn; packets use the same methods/fields as the vanilla turn.
-use super::{Game, Hand, S, face_direction, hand_id, play};
+use super::Game;
 use crate::game::create_port_burner_interactions as burner;
+use horizon_client::first_person::Hand;
+use horizon_protocol::packets::play::{self as play, Serverbound as S};
+
+/// `InteractionHand` on the wire.
+fn hand_id(hand: Hand) -> i32 {
+    match hand {
+        Hand::Main => 0,
+        Hand::Off => 1,
+    }
+}
+
+/// Create's block face → protocol face mapping.
+fn face_direction(face: [i32; 3]) -> u8 {
+    match face {
+        [0, -1, 0] => 0,
+        [0, 1, 0] => 1,
+        [0, 0, -1] => 2,
+        [0, 0, 1] => 3,
+        [-1, 0, 0] => 4,
+        [1, 0, 0] => 5,
+        _ => 1,
+    }
+}
 
 pub(in crate::game) fn block(game: &mut Game<'_>, hand: Hand) -> bool {
     if game.spectator() {
@@ -18,7 +41,7 @@ pub(in crate::game) fn block(game: &mut Game<'_>, hand: Hand) -> bool {
     if !lifecycle && !fuel {
         return false;
     }
-    let sequence = game.next_sequence();
+    let sequence = game.create_next_sequence();
     let cursor = std::array::from_fn(|i| (hit.point[i] - f64::from(hit.pos[i])) as f32);
     game.send(S::UseItemOn(play::UseItemOn {
         hand: hand_id(hand),
@@ -29,9 +52,6 @@ pub(in crate::game) fn block(game: &mut Game<'_>, hand: Hand) -> bool {
         world_border: false,
         sequence,
     }));
-    if let Some(remote) = game.remote.as_mut() {
-        remote.use_target = Some(hit.pos);
-    }
     let predicted = game.with_hand(hand, |g| {
         if lifecycle {
             burner::predict_block(g, hit.pos, held.as_ref())
@@ -60,9 +80,6 @@ pub(in crate::game) fn entity(game: &mut Game<'_>, hand: Hand) -> bool {
     {
         return false;
     }
-    if let Some(remote) = game.remote.as_mut() {
-        remote.use_target = None;
-    }
     let id = game.mobs[index].id as i32;
     game.send(S::Interact(play::Interact {
         id,
@@ -80,9 +97,7 @@ impl Game<'_> {
     // same connection has installed its new level. Server fuel data remains
     // valid there; disconnect/reconfiguration removes heard_level first.
     pub(in crate::game) fn create_burner_sync_has_level(&self) -> bool {
-        self.remote
-            .as_ref()
-            .is_some_and(|remote| remote.heard_level.is_some())
+        false
     }
 
     pub(in crate::game) fn create_burner_predict_block(&mut self, hand: Hand) -> bool {

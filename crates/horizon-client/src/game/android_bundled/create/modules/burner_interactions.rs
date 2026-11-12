@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 // Create6.0.10 ac0c444: BlazeBurnerBlock/BlazeBurnerBlockItem/LitBlazeBurnerBlock.
 use super::Game;
-use crate::{containers::BlockEntity, items::ItemStack};
+use horizon_client::{containers::BlockEntity, items::ItemStack};
 use horizon_client::particles::{ParticleOptions, ParticleType};
 use horizon_core::random::RandomSource;
 use horizon_world::{nbt::Tag, player_inventory::EquipmentSlot};
@@ -198,13 +198,17 @@ pub(super) fn right_click(game: &mut Game<'_>, pos: Pos) -> bool {
             } else {
                 EquipmentSlot::MainHand
             };
-            game.damage_held_in_slot(1, slot);
+            let slot_id = match slot {
+                EquipmentSlot::OffHand => 1,
+                _ => 0,
+            };
+            game.damage_held_in_slot(slot_id, 1.0);
             if let Some(state) = game.pack.assets.registry.default_state(LIT) {
                 game.native_set_block(game.dim.id(), pos, state, 3);
             }
         }
         Action::Extinguish => {
-            game.damage_held_in_slot(1, EquipmentSlot::MainHand);
+            game.damage_held_in_slot(0, 1.0);
             if let Some(state) = game.pack.assets.registry.default_state(BLOCK) {
                 game.native_set_block(game.dim.id(), pos, state, 3);
             }

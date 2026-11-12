@@ -2,15 +2,16 @@
 // Copyright (c) 2026 create-horizon contributors
 // SPDX-License-Identifier: MIT
 // Client adapter for crank interpolation, depot piles, goggles and kinetic feedback.
-use super::{Game, native_block_entity_draw::BlockEntityDraw};
+use super::{Game, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
 use crate::game::create_port::{integer, number};
-use crate::{
+use horizon_client::{
     containers::{BlockEntity, ModBlockEntity},
     hud::HudBatch,
     items::ItemStack,
     particles::{ParticleOptions, ParticleType},
 };
-use create_engine::{
+use super::create_engine::{
     kinetics::Pos,
     particles::{self as particle_rules, KineticEffects, ParticleRandom},
     visual::{self, CrankMotion},

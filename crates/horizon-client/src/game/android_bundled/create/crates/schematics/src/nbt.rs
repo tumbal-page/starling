@@ -5,7 +5,7 @@
 //! by the already-used MIT/Apache-2.0 `flate2` crate. Keeping this explicit reader
 //! avoids an unbounded recursive deserializer and preserves numeric tag types,
 //! empty-list element types and floating-point bits for the native adapter.
-use crate::{Error, Limits};
+use super::{Error, Limits};
 use flate2::{Compression, bufread::GzDecoder, write::GzEncoder};
 use std::{
     collections::BTreeMap,

@@ -7,7 +7,7 @@
 //! is a source-reference/oracle boundary only: the current native adapter uses
 //! `Visual`. Keeping both specifications does not select or detect a backend.
 //! World queries, actual player bearing and renderer submission are adapters.
-use crate::{
+use super::{
     burner::Heat,
     particles::{ParticleRandom, source_sin},
     placement::Direction,
@@ -368,7 +368,7 @@ pub struct Particle {
     pub velocity: [f64; 3],
 }
 fn offset(random: &mut impl Random, range: f32) -> [f64; 3] {
-    crate::particles::offset_randomly(random, range)
+    super::particles::offset_randomly(random, range)
 }
 fn normalized(mut v: [f64; 3]) -> [f64; 3] {
     v[1] *= 0.25;

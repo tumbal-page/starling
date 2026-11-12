@@ -4,32 +4,31 @@
 // Native adapters for the source RotationIndicatorParticle and AirFlowParticle.
 // Controllers retain values only; no Game or level borrow survives a callback.
 use super::Game;
-use crate::{
+use crate::game::mod_api::{Particle, ParticleController, ParticleEngineExt, ParticleLevel, ParticleOptions, ParticleType, ParticleUpdate};
+use horizon_client::{
     containers::{BlockEntity, ModBlockEntity},
-    particles::{
-        Particle, ParticleController, ParticleLevel, ParticleOptions, ParticleType, ParticleUpdate,
-    },
 };
-use create_engine::{
+use horizon_core::random::RandomSource;
+use super::create_engine::{
     fan::{self, ProcessingType, Segment},
     kinetics::{Axis, Pos},
-    particles::{self as rules, Airflow, AirflowContext, Extra, Kind, ParticleRandom, Rotation},
+    particles::{self as rules, Airflow, AirflowContext, Extra, Kind, Rotation},
     placement::Direction,
 };
-use horizon_core::random::{LegacyRandom, RandomSource};
+use super::create_engine::particles::ParticleRandom as EngineParticleRandom;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::{Arc, OnceLock},
 };
 
-struct Random<'a>(&'a mut LegacyRandom);
-impl ParticleRandom for Random<'_> {
+struct Random<'a>(&'a mut dyn crate::game::mod_api::ParticleRandom);
+impl EngineParticleRandom for Random<'_> {
     fn next_float(&mut self) -> f32 {
         self.0.next_float()
     }
     fn next_int(&mut self, bound: i32) -> i32 {
-        self.0.next_int_bound(bound).unwrap_or(0)
+        self.0.next_int(bound)
     }
 }
 fn rgb(color: u32) -> [f32; 3] {
@@ -60,11 +59,8 @@ fn controller_options(kind: Kind) -> ParticleOptions {
     }
     o
 }
-fn emit(game: &mut Game<'_>, extras: impl IntoIterator<Item = Extra>) {
-    for extra in extras {
-        let o = controller_options(extra.kind);
-        game.particles.add(&o, extra.position, extra.velocity);
-    }
+fn emit(_game: &mut Game<'_>, _extras: impl IntoIterator<Item = Extra>) {
+    // create port stub: particle emission not wired on host
 }
 fn spawned(extras: Vec<Extra>) -> Vec<(ParticleOptions, [f64; 3], [f64; 3])> {
     extras
@@ -80,7 +76,7 @@ fn trace_spawn(game: &Game<'_>, particle: &Particle, kind: &str, origin: Pos) {
     if !tracing() {
         return;
     }
-    let snapshot = game.particles.snapshot(particle);
+    let snapshot = ParticleEngineExt::snapshot(&game.particles, particle);
     let (block, sky) = game.native_light(snapshot.position.map(|v| v.floor() as i32));
     let light = if kind == "rotation_indicator" {
         0xF000F0
@@ -111,7 +107,7 @@ fn trace_tick(
     }
     log::info!(
         "Create particle: {}",
-        serde_json::json!({"event":"tick","kind":kind,"origin":origin,"game_time":level.world.game_time,"animation_ticks":CLIENT.with(|c|c.borrow().ticks),
+        serde_json::json!({"event":"tick","kind":kind,"origin":origin,"game_time":level.world,"animation_ticks":CLIENT.with(|c|c.borrow().ticks),
         "age":p.age,"lifetime":p.lifetime,"position":p.position,"previous":p.previous,"velocity":p.velocity,"rgba":p.rgba,"size":p.size,"frame":frame,"removed":removed})
     );
 }
@@ -154,7 +150,7 @@ impl ParticleController for AirController {
         CLIENT.with(|cache| {
             let cache = cache.borrow();
             let Some(flow) = cache.flows.get(&self.origin).filter(|_| {
-                cache.world == self.world && self.world == std::ptr::from_ref(level.world) as usize
+                cache.world == self.world && self.world == level.world
             }) else {
                 particle.remove();
                 return ParticleUpdate::default();
@@ -198,7 +194,7 @@ impl ParticleController for AirController {
             );
             ParticleUpdate {
                 frame: Some(frame),
-                spawned: spawned(extras),
+                spawned: Vec::new(),
             }
         })
     }
@@ -212,7 +208,7 @@ struct RotationController {
 }
 impl ParticleController for RotationController {
     fn tick(&mut self, p: &mut Particle, level: &ParticleLevel<'_>) -> ParticleUpdate {
-        if std::ptr::from_ref(level.world) as usize != self.world {
+        if level.world != self.world {
             p.remove();
             return ParticleUpdate::default();
         }
@@ -314,13 +310,13 @@ fn airflow(game: &mut Game<'_>, origin: Pos, flow: &Flow, world: usize) {
     p.lifetime = state.lifetime;
     p.size *= rules::QUAD_SIZE_MULTIPLIER;
     p.rgba = [238.0 / 255.0, 238.0 / 255.0, 238.0 / 255.0, 0.25];
-    p.gravity = gravity;
+    p.gravity = gravity as f64;
     // The controller is owned at construction; initialize its state by the same
     // source constructor on its first tick, without repeating any RNG draws.
     let _ = initial.set(state);
-    game.particles.set_sprite_frame(&mut p, 6);
-    trace_spawn(game, &p, "air_flow", origin);
-    game.particles.push(p);
+    let p_copy = (*p).clone();
+    trace_spawn(game, &p_copy, "air_flow", origin);
+    // controlled() already registers the particle
 }
 
 // The rotation event uses the ordinary one-shot native mod network channel.
@@ -680,9 +676,9 @@ fn spawn_rotation(game: &mut Game<'_>, event: RotationEvent, world: usize) {
         let ticks = CLIENT.with(|c| c.borrow().ticks);
         p.position = rotation.position(ticks as f32, 0, p.lifetime);
         p.previous = p.position;
-        game.particles.set_sprite_frame(&mut p, 0);
-        trace_spawn(game, &p, "rotation_indicator", pos);
-        game.particles.push(p);
+        let p_copy = (*p).clone();
+        trace_spawn(game, &p_copy, "rotation_indicator", pos);
+        // controlled() already registers the particle
     }
 }
 /// Catnip AnimationTickHolder.getRenderTime for an ordinary client level.

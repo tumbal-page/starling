@@ -4,13 +4,14 @@
 // AirCurrent / FanProcessing adapter. No item components are used as entity data.
 // Adapted for Android bundled port.
 
-use super::{Game, native_block_entity_draw::BlockEntityDraw};
-use crate::{containers::ModBlockEntity, items::ItemStack};
-use android_bundled::create::crates::engine::{
+use super::{Game, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use horizon_client::{containers::ModBlockEntity, items::ItemStack};
+use super::create_engine::{
     fan::{self, Processing, ProcessingType as Type, Segment},
     placement::Direction,
 };
-use horizon_core::{geometry::Vec3, random::RandomSource};
+use horizon_core::{geometry::{Aabb, Vec3}, random::RandomSource};
 use horizon_world::nbt::{Compound, Tag};
 use std::{cell::RefCell, collections::BTreeMap};
 
@@ -150,10 +151,16 @@ fn flow_limit(game: &Game<'_>, pos: [i32; 3], d: Direction, max: f32) -> f32 {
         if boxes.is_empty() {
             continue;
         }
-        if boxes == [[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]] {
+        let full_block = Aabb::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
+        if boxes.len() == 1 && boxes[0] == full_block {
             return i as f32;
         }
-        let depth = fan::shape_depth(&boxes, d);
+        let boxes_array: Vec<[f64; 6]> = boxes.iter().map(|b| {
+            let mn = b.min_position();
+            let mx = b.max_position();
+            [mn.x, mn.y, mn.z, mx.x, mx.y, mx.z]
+        }).collect();
+        let depth = fan::shape_depth(&boxes_array, d);
         if depth.is_finite() {
             return ((f64::from(i) + depth + 1.0 / 32.0) as f32).min(max);
         }
@@ -210,7 +217,7 @@ fn refresh(game: &Game<'_>) {
                 let Some(output) = output else {
                     continue;
                 };
-                for item in input.order {
+                for item in input.0 {
                     recipes.entry(item).or_insert_with(|| output.clone());
                 }
             }
@@ -318,7 +325,7 @@ fn roll(
     for _ in 0..stack.count {
         for (output, chance) in outputs {
             let mut output = output.clone();
-            output.count = create_engine::milling::roll_count(output.count, *chance, || {
+            output.count = super::create_engine::milling::roll_count(output.count, *chance, || {
                 game.world.random.next_float()
             });
             if output.count > 0 {
@@ -495,16 +502,16 @@ struct BeltContext<'a, 'b> {
 impl fan::TransportedContext<ItemStack> for BeltContext<'_, '_> {
     fn can_process(
         &mut self,
-        stack: &create_engine::transport::Stack<ItemStack>,
+        stack: &super::create_engine::transport::Stack<ItemStack>,
         kind: Type,
     ) -> bool {
         plan(self.game, &super::create_port_belt::game_stack(stack), kind).is_some()
     }
     fn process(
         &mut self,
-        stack: &create_engine::transport::Stack<ItemStack>,
+        stack: &super::create_engine::transport::Stack<ItemStack>,
         kind: Type,
-    ) -> Option<Vec<create_engine::transport::Stack<ItemStack>>> {
+    ) -> Option<Vec<super::create_engine::transport::Stack<ItemStack>>> {
         let input = super::create_port_belt::game_stack(stack);
         let outputs = plan(self.game, &input, kind)?;
         Some(
@@ -519,7 +526,7 @@ impl fan::TransportedContext<ItemStack> for BeltContext<'_, '_> {
             .collect(),
         )
     }
-    fn similar_angle(&mut self, input: &create_engine::transport::Stack<ItemStack>) -> i32 {
+    fn similar_angle(&mut self, input: &super::create_engine::transport::Stack<ItemStack>) -> i32 {
         super::create_port_belt::angle(self.game, &input.payload)
     }
 }
@@ -561,13 +568,13 @@ pub(super) fn tick(game: &mut Game<'_>, pos: [i32; 3], entity: &mut ModBlockEnti
         current.handlers.clear();
         for i in 1..=current.distance.ceil() as i32 {
             let kind = fan::type_at(current.distance, push, &current.segments, (i - 1) as f32);
-            for offset in 0..=i32::from(facing.axis() != create_engine::kinetics::Axis::Y) {
+            for offset in 0..=i32::from(facing.axis() != super::create_engine::kinetics::Axis::Y) {
                 let mut p = add(pos, facing, i);
                 p[1] -= offset;
                 let block = game.native_block(p);
                 if matches!(block.as_str(), "create:depot" | "create:belt")
                     && matches!(game.world.block_entities.get(&(p[0], p[1], p[2])),
-                        Some(crate::containers::BlockEntity::Mod(e)) if e.id == block)
+                        Some(horizon_client::containers::BlockEntity::Mod(e)) if e.id == block)
                     && let Some(kind) = media(game, p).or(kind)
                 {
                     current.handlers.push((p, kind));
@@ -868,7 +875,7 @@ pub(super) fn client_tick(game: &mut Game<'_>) {
         .block_entities
         .iter()
         .filter_map(|(&(x, y, z), e)| {
-            let crate::containers::BlockEntity::Mod(e) = e else {
+            let horizon_client::containers::BlockEntity::Mod(e) = e else {
                 return None;
             };
             (e.id == "create:encased_fan").then(|| ([x, y, z], synced_current(e)))
@@ -912,7 +919,7 @@ pub(super) fn client_tick(game: &mut Game<'_>) {
     }
 }
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: [i32; 3],
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -924,19 +931,19 @@ pub(super) fn draw(
     for (model, angle) in [
         (
             "create:block/shaft_half",
-            create_engine::visual::angle(
+            super::create_engine::visual::angle(
                 time,
                 speed,
-                create_engine::visual::rotation_offset(pos, axis, false),
+                super::create_engine::visual::rotation_offset(pos, axis, false),
             ),
         ),
         (
             "create:block/encased_fan/propeller",
-            create_engine::visual::angle(time, fan::propeller_speed(speed), 0.0),
+            super::create_engine::visual::angle(time, fan::propeller_speed(speed), 0.0),
         ),
     ] {
         draw.push();
-        draw.rotate_about(create_engine::visual::positive_axis(axis), angle, [0.5; 3]);
+        draw.rotate_about(super::create_engine::visual::positive_axis(axis), angle, [0.5; 3]);
         super::create_port::face_south(draw, facing.opposite());
         game.native_draw_model(draw, model, 0xFFFFFF);
         draw.pop();

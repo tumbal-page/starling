@@ -7,8 +7,9 @@ use super::{
     Game, create_port_basin as basin,
     create_port_basin_recipes::{self as recipes, Operator, Recipe},
 };
-use crate::containers::{ModBlockEntity, ModRevision};
-use create_engine::{
+use crate::game::mod_api::{ModBlockEntityExt, ModRevision};
+use horizon_client::containers::{ModBlockEntity};
+use super::create_engine::{
     pressing::{Action, PressCycle},
     transport::SessionCache,
 };
@@ -64,7 +65,7 @@ pub(super) fn on_speed_changed(entity: &mut ModBlockEntity, previous: f32, curre
     }
 }
 pub(super) fn basin_removed(game: &Game<'_>, pos: Pos) {
-    let Some(crate::containers::BlockEntity::Mod(entity)) =
+    let Some(horizon_client::containers::BlockEntity::Mod(entity)) =
         game.world.block_entities.get(&(pos[0], pos[1], pos[2]))
     else {
         return;
@@ -75,7 +76,7 @@ pub(super) fn basin_removed(game: &Game<'_>, pos: Pos) {
     let owner = entity.revision();
     with_world(game, |world| {
         let state = world.entry(pos).or_default();
-        if state.owner.is_some_and(|old| !old.same_entity(owner)) {
+        if state.owner.is_some_and(|old| !old.same_entity(&owner)) {
             *state = Running::default();
         }
         state.owner = Some(owner);
@@ -117,7 +118,7 @@ pub(super) fn tick(
     let mut state = with_world(game, |world| world.remove(&pos).unwrap_or_default());
     let owner = entity.revision();
     if state.tick.is_some_and(|tick| tick > now)
-        || state.owner.is_some_and(|old| !old.same_entity(owner))
+        || state.owner.is_some_and(|old| !old.same_entity(&owner))
     {
         state = Running::default();
     }
@@ -186,10 +187,7 @@ pub(super) fn tick(
                     });
                     // tryProcessInBasin always returns true and records inputs
                     // remaining AFTER apply, even when no currentRecipe exists.
-                    entity.set_client_update_fields(Compound::from([(
-                        "ParticleItems".into(),
-                        Tag::List(particles),
-                    )]));
+                    entity.set_client_update_fields();
                     super::create_port_sounds::press(game, pos, rpm);
                     sync = true;
                 }

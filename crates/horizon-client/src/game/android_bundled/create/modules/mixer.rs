@@ -5,9 +5,11 @@
 // Source heat-aware item/water/lava mixing and ordinary shapeless crafting. processingTicks and
 // currentRecipe deliberately remain transient, exactly as the source serializer.
 use super::create_port_basin_recipes::Recipe;
-use super::{Game, create_port_basin as basin, native_block_entity_draw::BlockEntityDraw};
-use crate::containers::{BlockEntity, ModBlockEntity, ModRevision};
-use create_engine::{basin as rules, kinetics::Axis, transport::SessionCache};
+use super::{Game, create_port_basin as basin, create_engine};
+use crate::game::native_block_entity_draw::BlockEntityDraw;
+use crate::game::mod_api::{ModBlockEntityExt, ModRevision};
+use horizon_client::containers::{BlockEntity, ModBlockEntity};
+use super::create_engine::{basin as rules, kinetics::Axis, transport::SessionCache};
 use horizon_client_render::sound_engine::{SoundEngine, SoundInstance, Sounds};
 use horizon_core::random::RandomSource;
 use horizon_world::nbt::Tag;
@@ -134,7 +136,7 @@ pub(super) fn tick(game: &mut Game<'_>, pos: Pos, entity: &mut ModBlockEntity, r
     let received = saved(entity);
     // Source transient fields belong to the BE object, not its coordinate or
     // saved counters. Ordinary load/update writes retain that object's timer.
-    if state.tick.is_some_and(|t| t > now) || state.owner.is_some_and(|old| !old.same_entity(owner))
+    if state.tick.is_some_and(|t| t > now) || state.owner.is_some_and(|old| !old.same_entity(&owner))
     {
         state = Running::default();
     }
@@ -270,7 +272,7 @@ pub(super) fn bounds(entity: &ModBlockEntity, bounds: &mut [f32; 6]) {
     }
 }
 pub(super) fn draw(
-    game: &Game<'_>,
+    game: &mut Game<'_>,
     pos: Pos,
     entity: &ModBlockEntity,
     draw: &mut BlockEntityDraw,
@@ -283,7 +285,7 @@ pub(super) fn draw(
             .get(&pos)
             .filter(|c| {
                 c.owner
-                    .is_some_and(|old| old.same_entity(entity.revision()))
+                    .is_some_and(|old| old.same_entity(&entity.revision()))
             })
             .map_or_else(
                 || {
@@ -299,10 +301,10 @@ pub(super) fn draw(
     });
     let rpm = super::create_port::number(&entity.nbt, "Speed");
     let time = draw.game_time as f64 + f64::from(draw.partial);
-    let angle = create_engine::visual::angle(
+    let angle = super::create_engine::visual::angle(
         time,
         rpm,
-        create_engine::visual::rotation_offset(pos, Axis::Y, false),
+        super::create_engine::visual::rotation_offset(pos, Axis::Y, false),
     );
     draw.push();
     draw.rotate_about([0.0, 1.0, 0.0], angle, [0.5; 3]);
@@ -357,7 +359,7 @@ pub(super) fn client_tick(game: &mut Game<'_>) {
         let particles = with_world(game, |w| {
             let c = w.client.entry(pos).or_default();
             if c.tick.is_some_and(|t| t > time)
-                || c.owner.is_some_and(|old| !old.same_entity(owner))
+                || c.owner.is_some_and(|old| !old.same_entity(&owner))
             {
                 *c = Client::default();
             }

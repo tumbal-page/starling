@@ -2,7 +2,7 @@
 // Copyright (c) 2026 create-horizon contributors
 // SPDX-License-Identifier: MIT
 //! SoundScapes/SoundScape/ContinuousSound/RepeatingSound and AirCurrentSound.
-use crate::kinetics::Pos;
+use super::kinetics::Pos;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const UPDATE_INTERVAL: i32 = 5;

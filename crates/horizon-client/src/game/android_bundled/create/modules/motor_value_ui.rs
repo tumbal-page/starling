@@ -6,7 +6,8 @@
 // Adapted for Android bundled port.
 
 use super::Game;
-use crate::{containers::BlockEntity, mod_api::NativeScreenView};
+use crate::game::mod_api::NativeScreenView;
+use horizon_client::containers::BlockEntity;
 use horizon_client::{
     first_person::Hand,
     hud::{HudBatch, rgba},
@@ -182,7 +183,7 @@ pub(super) fn tick(game: &mut Game<'_>) {
                         sound_cooldown: 0,
                     });
                     if let Some(size) = game.native_physical_window_size() {
-                        let batch = HudBatch::new(size);
+                        let batch = HudBatch::new([size[0] as u32, size[1] as u32]);
                         state.cursor =
                             Some(layout(game, [batch.width, batch.height]).coordinate(current));
                     }
@@ -359,7 +360,7 @@ fn text(game: &Game<'_>, batch: &mut HudBatch, text: &Text, at: [i32; 2], rgb: u
 }
 
 pub(super) fn draw(game: &Game<'_>, batch: &mut HudBatch, screen: &NativeScreenView<'_>) {
-    if game.native_mod_screen() != Some("create") {
+    if !game.native_mod_screen_open("create") {
         return;
     }
     let Some(panel) = STATE.with_borrow(|state| state.panel) else {
@@ -508,7 +509,7 @@ pub(super) fn mouse_press(
     _button: i32,
     canceled: &mut bool,
 ) {
-    if game.native_mod_screen() == Some("create")
+    if game.native_mod_screen_open("create")
         && STATE.with_borrow(|state| state.panel.is_some())
     {
         *canceled = true;
@@ -542,7 +543,7 @@ pub(super) fn key_release(
     }
 }
 fn submit(game: &Game<'_>, screen: &NativeScreenView<'_>) -> bool {
-    if game.native_mod_screen() != Some("create") {
+    if !game.native_mod_screen_open("create") {
         return false;
     }
     STATE.with_borrow_mut(|state| {
@@ -565,7 +566,7 @@ pub(super) fn scroll(
     modifiers: u32,
     canceled: &mut bool,
 ) {
-    if game.native_mod_screen() != Some("create")
+    if !game.native_mod_screen_open("create")
         || !STATE.with_borrow(|state| state.panel.is_some())
         || !scroll[1].is_finite()
     {
@@ -603,12 +604,14 @@ pub(super) fn frame(game: &mut Game<'_>) {
         game.cursor = (at[0], at[1]);
         if game.focused
             && !game.options.offscreen
-            && let (Some(window), Some(size)) = (&game.window, game.native_physical_window_size())
+            && let Some(window) = &game.window
+            && let Some(size) = game.native_physical_window_size()
         {
-            let scale = HudBatch::new(size).scale;
+            let view_at = game.view_at;
+            let scale = HudBatch::new([size[0] as u32, size[1] as u32]).scale;
             let _ = window.set_cursor_position(winit::dpi::PhysicalPosition::new(
-                game.view_at[0] as f64 + f64::from(at[0] * scale),
-                game.view_at[1] as f64 + f64::from(at[1] * scale),
+                view_at[0] as f64 + f64::from(at[0] * scale),
+                view_at[1] as f64 + f64::from(at[1] * scale),
             ));
         }
     }
@@ -628,7 +631,7 @@ pub(super) fn frame(game: &mut Game<'_>) {
     if close {
         game.native_mod_screen_close("create");
     }
-    if game.native_mod_screen() != Some("create") {
+    if !game.native_mod_screen_open("create") {
         STATE.with_borrow_mut(|state| state.panel = None);
     }
 }

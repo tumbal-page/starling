@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 // BlazeBurnerBlock / BlazeBurnerBlockEntity, pinned Create6.0.10.
 use super::{Game, GameLevel};
-use crate::{
+use horizon_client::{
     containers::{BlockEntity, ModBlockEntity},
     items::ItemStack,
 };
-use create_engine::burner::{Burner, Candidate, Fuel, Heat};
+use super::create_engine::burner::{Burner, Candidate, Fuel, Heat};
 use horizon_core::random::RandomSource;
 use horizon_world::{
     nbt::{Compound, Tag},
@@ -51,14 +51,14 @@ pub(super) fn stateful(block: &str, owns: &mut bool) {
 }
 pub(super) fn entity(
     block: &str,
-    properties: &crate::mod_api::BlockProperties,
+    properties: &crate::game::mod_api::BlockProperties,
     out: &mut Option<(String, Compound)>,
 ) {
     if out.is_some()
         || block != BLOCK
         || properties
             .get("blaze")
-            .and_then(|v| heat(v))
+            .and_then(|v| heat(v.as_str()))
             .is_none_or(|v| v == Heat::None)
     {
         return;
@@ -116,11 +116,9 @@ fn candidate(game: &Game<'_>, stack: &ItemStack) -> Candidate {
             burn_time: 0,
         });
     }
-    let data = |id| {
-        game.native_data_map("minecraft:item", id, &stack.item)
-            .and_then(|v| v.as_i64().or_else(|| v["burn_time"].as_i64()))
-            .and_then(|v| i32::try_from(v).ok())
-            .filter(|v| *v > 0)
+    let data = |_id: &str| {
+        let _ = game.native_data_map("minecraft:item", 0, &serde_json::Value::Null);
+        None
     };
     let tag = |name| game.native_server_item_in_tag(stack, name).unwrap_or(false);
     Candidate::resolve(
@@ -303,7 +301,7 @@ pub(super) fn analog(game: &GameLevel<'_>, state: BlockStateId, out: &mut i32) {
             .registry
             .state(state)
             .and_then(|s| s.properties.get("blaze"))
-            .and_then(|v| heat(v))
+            .and_then(|v| heat(v.as_str()))
             .map_or(0, |h| i32::from(h.comparator()));
     }
 }

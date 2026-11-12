@@ -5,8 +5,8 @@
 // Adapted for Android bundled port.
 
 use super::Game;
-use crate::{containers::BlockEntity, items::ItemStack};
-use android_bundled::create::crates::engine::{
+use horizon_client::{containers::BlockEntity, items::ItemStack};
+use super::create_engine::{
     kinetics::Axis,
     placement::Direction,
 };
@@ -87,7 +87,7 @@ fn wheel_material(game: &Game<'_>) -> Option<String> {
         .item
         .strip_prefix("minecraft:")?
         .strip_suffix("_planks")?;
-    android_bundled::create::crates::assets::WOODS
+    super::assets::WOODS
         .contains(&name)
         .then(|| held.item.to_string())
 }
@@ -155,14 +155,7 @@ pub(super) fn right_click(game: &mut Game<'_>, pos: [i32; 3], face: [i32; 3]) ->
             } else {
                 let state = game.world.block(pos[0], pos[1], pos[2]);
                 let tool = game.held().cloned();
-                let saved = game
-                    .world
-                    .block_entities
-                    .get(&(pos[0], pos[1], pos[2]))
-                    .map(|entity| {
-                        crate::save::encode_block_entity((pos[0], pos[1], pos[2]), entity, &block)
-                    });
-                game.block_loot_at(pos, state, tool.as_ref(), saved)
+                game.block_loot_at(pos, state, tool.as_ref())
             };
             if switch(game, pos, "minecraft:air") {
                 for stack in drops {

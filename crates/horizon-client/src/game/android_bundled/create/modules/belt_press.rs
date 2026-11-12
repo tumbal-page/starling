@@ -6,8 +6,9 @@
 // Adapted for Android bundled port.
 
 use super::{Game, create_port as port, create_port_belt as belt};
-use crate::{containers::BlockEntity, items::ItemStack};
-use android_bundled::create::crates::engine::{
+use crate::game::mod_api::ModBlockEntityExt;
+use horizon_client::{containers::BlockEntity, items::ItemStack};
+use super::create_engine::{
     pressing::{self, BeltDecision, BeltPressContext, BeltPressState, PressCycle},
     transport::{ProcessingResult, ProcessingUpdate, Stack, Transported},
 };
@@ -92,10 +93,7 @@ impl BeltPressContext<ItemStack> for Context<'_, '_> {
         let original = belt::game_stack(&input.stack);
         let output = port::result(self.game, &original)?;
         self.game.native_with_mod_block_entity(self.pos, |entity| {
-            entity.set_client_update_fields(Compound::from([(
-                "ParticleItems".into(),
-                Tag::List(vec![horizon_items::item_nbt::item_to_nbt(&original)]),
-            )]));
+            entity.set_client_update_fields();
         });
         Some(vec![belt::core_stack(self.game, output)])
     }
@@ -126,3 +124,5 @@ pub(super) fn held(
         conversion: Some(output.conversion),
     }
 }
+
+pub(super) fn tick(_game: &mut Game<'_>, _pos: [i32; 3], _entity: &mut horizon_client::containers::ModBlockEntity) {}
