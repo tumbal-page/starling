@@ -247,12 +247,18 @@ impl Game<'_> {
         if self.ui.vanilla_root.as_os_str().is_empty() {
             self.ui.vanilla_root = vanilla.clone();
         }
-        let (selected, server, mods, dev_mods) = (
+        let (selected, server, mut mods, dev_mods) = (
             self.settings.resource_packs.clone(),
             self.server_packs.active.clone(),
             self.settings.mods.enabled.clone(),
             self.options.dev_mods.clone(),
         );
+        #[cfg(target_os = "android")]
+        {
+            if !self.settings.mods.disabled.contains("create") {
+                mods.insert("create".to_owned());
+            }
+        }
         let (assets, res, context) = (
             self.pack.assets.clone(),
             self.res.clone(),

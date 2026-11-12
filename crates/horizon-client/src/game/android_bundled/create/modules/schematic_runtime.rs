@@ -9,7 +9,7 @@ use super::Game;
 use horizon_client::{
     containers::BlockEntity,
 };
-use crate::game::mod_api::{NativeCommand, NativeServerPlayer};
+use crate::game::native_server::{NativeCommand, NativeServerPlayer};
 use super::schematics::{
     BlockEntitySchema, BlockSchema, BlockState, Compound, Limits, Options, Plan, Resolver, Tag,
     TagKind,

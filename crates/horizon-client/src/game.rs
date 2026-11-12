@@ -21393,11 +21393,21 @@ pub fn run() -> Result<()> {
             pack_error = Some(e.to_string());
             vanilla_root.clone()
         });
-    options.resources = mods::content_root(
-        &options.resources,
-        &early_settings.mods.enabled,
-        &options.dev_mods,
-    );
+    let mods_enabled = {
+        #[cfg(target_os = "android")]
+        {
+            let mut set = early_settings.mods.enabled.clone();
+            if !early_settings.mods.disabled.contains("create") {
+                set.insert("create".to_owned());
+            }
+            set
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            early_settings.mods.enabled.clone()
+        }
+    };
+    options.resources = mods::content_root(&options.resources, &mods_enabled, &options.dev_mods);
     let loaded = load_resources(
         options.resources.clone(),
         launch_world(&options),

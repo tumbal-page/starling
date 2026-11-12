@@ -21,6 +21,12 @@ use horizon_world::{
 };
 use serde_json::Value;
 
+pub const ID: &str = "create";
+pub const VERSION: &str = "0.7.0-alpha.2";
+pub const DESCRIPTION: &str =
+    "Build rotating machines and small factories in Horizon. The original Create JAR is optional \
+     and supplies its models and textures.";
+
 static ORIGINAL_ASSETS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub(super) fn original_assets() -> bool {
@@ -33,7 +39,7 @@ pub(crate) fn prepare_content(enabled: &std::collections::BTreeSet<String>) {
     if enabled.contains("create") {
         match super::assets::bundled_content(
             Game::game_dir(),
-            b"",
+            horizon_client::native_data!("create", "content.json"),
         ) {
             Ok(path) => {
                 log::info!("Create: bundled content enabled in {}", path.display());

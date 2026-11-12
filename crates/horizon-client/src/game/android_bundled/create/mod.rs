@@ -7,6 +7,8 @@ use super::{Game, GameLevel};
 
 #[path = "modules/runtime.rs"]
 pub(crate) mod create_port;
+#[path = "modules/create_list.rs"]
+pub(crate) mod create_port_create_list;
 #[path = "modules/chain_runtime.rs"]
 pub(crate) mod create_port_chain;
 #[path = "modules/schematic_runtime.rs"]

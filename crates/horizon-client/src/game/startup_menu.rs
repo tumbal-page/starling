@@ -436,7 +436,21 @@ pub(super) fn spawn_loader(
                     pack_error = Some(error.to_string());
                     vanilla_root.clone()
                 });
-            let root = mods::content_root(&root, &settings.mods.enabled, &dev_mods);
+            let mods_enabled = {
+                #[cfg(target_os = "android")]
+                {
+                    let mut set = settings.mods.enabled.clone();
+                    if !settings.mods.disabled.contains("create") {
+                        set.insert("create".to_owned());
+                    }
+                    set
+                }
+                #[cfg(not(target_os = "android"))]
+                {
+                    settings.mods.enabled.clone()
+                }
+            };
+            let root = mods::content_root(&root, &mods_enabled, &dev_mods);
             let result = load_resources(
                 root,
                 world.as_deref(),

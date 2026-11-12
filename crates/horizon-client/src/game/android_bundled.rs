@@ -241,6 +241,7 @@ pub(super) fn native_mods(game: &mut Game<'_>, mods: &mut Vec<NativeMod>) {
         appleskin_list::run(&mut *mods);
         jei_list::jei_listed(&mut *mods);
         treefall_list::treefall_listed(&mut *mods);
+        create::create_port_create_list::run(&mut *mods);
     }
 }
 
@@ -335,7 +336,7 @@ pub(super) fn reset() {
 
 /// Create mod: register `create schematic` commands (HEAD of `native_register_commands`).
 pub(super) fn native_create_register_commands(game: &mut Game<'_>, commands: &mut Vec<NativeCommand>) {
-    let _ = (game, commands);
+    let _ = (&game, &commands);
     #[cfg(target_os = "android")]
     {
         create::create_port_schematic_runtime::register(&*game, commands);
@@ -349,7 +350,7 @@ pub(super) fn native_create_perform_command(
     command: &str,
     ran: &mut bool,
 ) {
-    let _ = (game, player, command, ran);
+    let _ = (&game, &player, &command, &ran);
     #[cfg(target_os = "android")]
     {
         create::create_port_schematic_runtime::command(game, player, command, ran);
@@ -362,7 +363,7 @@ pub(super) fn native_create_block_entity(
     block: &str,
     entity: &mut Option<(String, Compound)>,
 ) {
-    let _ = (game, block, entity);
+    let _ = (game, block);
     #[cfg(target_os = "android")]
     {
         create::create_port::entity(block, entity);
@@ -370,8 +371,8 @@ pub(super) fn native_create_block_entity(
 }
 
 /// Create mod: mark Create-owned blocks as ticking (HEAD of `native_block_entity_ticks`).
-pub(super) fn native_create_block_entity_ticks(game: &mut Game<'_>, block: &str, ticks: &mut bool) {
-    let _ = (game, block, ticks);
+pub(super) fn native_create_block_entity_ticks(game: &Game<'_>, block: &str, ticks: &mut bool) {
+    let _ = (&game, block);
     #[cfg(target_os = "android")]
     {
         create::create_port::ticks(block, ticks);
@@ -384,7 +385,7 @@ pub(super) fn native_create_block_entity_tick(
     pos: [i32; 3],
     entity: &mut ModBlockEntity,
 ) {
-    let _ = (game, pos, entity);
+    let _ = (&game, &pos, &entity);
     #[cfg(target_os = "android")]
     {
         create::create_port::tick(game, pos, entity);
@@ -396,7 +397,7 @@ pub(super) fn native_create_block_entity_update_tag(
     entity: &ModBlockEntity,
     tag: &mut Option<Compound>,
 ) {
-    let _ = (entity, tag);
+    let _ = (&entity, &tag);
     #[cfg(target_os = "android")]
     {
         create::create_port::update_tag(entity, tag);
@@ -405,11 +406,11 @@ pub(super) fn native_create_block_entity_update_tag(
 
 /// Create mod: provide container for Create-owned blocks (HEAD of `native_block_entity_container`).
 pub(super) fn native_create_block_entity_container(
-    game: &mut Game<'_>,
+    game: &Game<'_>,
     block: &str,
     container: &mut Option<ModContainer>,
 ) {
-    let _ = (game, block, container);
+    let _ = (&game, block);
     #[cfg(target_os = "android")]
     {
         create::create_port::container(block, container);
