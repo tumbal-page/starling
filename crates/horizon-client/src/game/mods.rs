@@ -214,6 +214,10 @@ pub(super) fn content_root(
     enabled: &std::collections::BTreeSet<String>,
     dev: &[std::path::PathBuf],
 ) -> std::path::PathBuf {
+    #[cfg(target_os = "android")]
+    {
+        let _ = super::android_bundled::create::create_port::prepare_content(enabled);
+    }
     use horizon_client::mod_content::{self, ContentMod};
     use horizon_mods::{Capability, Content, Package};
     let here = std::env::current_dir().unwrap_or_default();

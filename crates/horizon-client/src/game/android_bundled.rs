@@ -4,6 +4,10 @@ use super::*;
 
 use super::native_hooks::*;
 
+use super::native_server::{NativeCommand, NativeServerPlayer};
+use horizon_client::containers::{ModBlockEntity, ModContainer};
+use horizon_world::nbt::Compound;
+
 #[cfg(target_os = "android")]
 #[path = "android_bundled/zoom/runtime.rs"]
 pub(super) mod official_zoom;
@@ -327,4 +331,87 @@ pub(super) fn reset() {
     official_recipes::set_viewer(None);
     smartf3_native::reset();
     appleskin_bar::reset();
+}
+
+/// Create mod: register `create schematic` commands (HEAD of `native_register_commands`).
+pub(super) fn native_create_register_commands(game: &mut Game<'_>, commands: &mut Vec<NativeCommand>) {
+    let _ = (game, commands);
+    #[cfg(target_os = "android")]
+    {
+        create::create_port_schematic_runtime::register(&*game, commands);
+    }
+}
+
+/// Create mod: handle `create schematic` player commands (HEAD of `native_perform_command`).
+pub(super) fn native_create_perform_command(
+    game: &mut Game<'_>,
+    player: &NativeServerPlayer,
+    command: &str,
+    ran: &mut bool,
+) {
+    let _ = (game, player, command, ran);
+    #[cfg(target_os = "android")]
+    {
+        create::create_port_schematic_runtime::command(game, player, command, ran);
+    }
+}
+
+/// Create mod: provide block entity for Create-owned blocks (HEAD of `native_block_entity`).
+pub(super) fn native_create_block_entity(
+    game: &mut Game<'_>,
+    block: &str,
+    entity: &mut Option<(String, Compound)>,
+) {
+    let _ = (game, block, entity);
+    #[cfg(target_os = "android")]
+    {
+        create::create_port::entity(block, entity);
+    }
+}
+
+/// Create mod: mark Create-owned blocks as ticking (HEAD of `native_block_entity_ticks`).
+pub(super) fn native_create_block_entity_ticks(game: &mut Game<'_>, block: &str, ticks: &mut bool) {
+    let _ = (game, block, ticks);
+    #[cfg(target_os = "android")]
+    {
+        create::create_port::ticks(block, ticks);
+    }
+}
+
+/// Create mod: tick Create block entities (HEAD of `native_block_entity_tick`).
+pub(super) fn native_create_block_entity_tick(
+    game: &mut Game<'_>,
+    pos: [i32; 3],
+    entity: &mut ModBlockEntity,
+) {
+    let _ = (game, pos, entity);
+    #[cfg(target_os = "android")]
+    {
+        create::create_port::tick(game, pos, entity);
+    }
+}
+
+/// Create mod: build update tag for Create block entities (HEAD of `native_block_entity_update_tag`).
+pub(super) fn native_create_block_entity_update_tag(
+    entity: &ModBlockEntity,
+    tag: &mut Option<Compound>,
+) {
+    let _ = (entity, tag);
+    #[cfg(target_os = "android")]
+    {
+        create::create_port::update_tag(entity, tag);
+    }
+}
+
+/// Create mod: provide container for Create-owned blocks (HEAD of `native_block_entity_container`).
+pub(super) fn native_create_block_entity_container(
+    game: &mut Game<'_>,
+    block: &str,
+    container: &mut Option<ModContainer>,
+) {
+    let _ = (game, block, container);
+    #[cfg(target_os = "android")]
+    {
+        create::create_port::container(block, container);
+    }
 }

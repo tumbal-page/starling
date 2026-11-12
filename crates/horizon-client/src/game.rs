@@ -19651,6 +19651,10 @@ fn load_resources(
     progress: &Progress,
     publish: &mut dyn FnMut(UiResources, &std::path::Path),
 ) -> Result<Loaded> {
+    #[cfg(target_os = "android")]
+    {
+        root = android_bundled::create::create_port::asset_root(root);
+    }
     let threads = settings.horizon.worker_threads();
     horizon_client::sprites::set_texture_budget(settings.horizon.texture_budget_mib);
     horizon_client::sprites::set_labpbr_maps(shader_packs::picks_native_pack(settings));

@@ -1410,12 +1410,20 @@ impl Game<'_> {
         block: &str,
         entity: &mut Option<(String, Compound)>,
     ) {
+        #[cfg(target_os = "android")]
+        {
+            super::android_bundled::native_create_block_entity(self, block, entity);
+        }
         let _ = (block, entity);
     }
     /// Whether block `block`'s block entity ticks (`EntityBlock.getTicker`):
     /// set `ticks` when it is yours. Asked for each of the block's states
     /// when a world opens. API 15.
     pub(super) fn native_block_entity_ticks(&self, block: &str, ticks: &mut bool) {
+        #[cfg(target_os = "android")]
+        {
+            super::android_bundled::native_create_block_entity_ticks(self, block, ticks);
+        }
         let _ = (block, ticks);
     }
     /// A `minecraft:post_attack` effect of a mod's own kind, on a mob a
@@ -1451,6 +1459,10 @@ impl Game<'_> {
         block: &str,
         container: &mut Option<ModContainer>,
     ) {
+        #[cfg(target_os = "android")]
+        {
+            super::android_bundled::native_create_block_entity_container(self, block, container);
+        }
         let _ = (block, container);
     }
     /// Block `block`'s block entity has fluid tanks: set `fluids` when the
@@ -1479,6 +1491,10 @@ impl Game<'_> {
     /// what `native_block_entity_update_tag` gives when its chunk is sent or
     /// its block changes. API 17.
     pub(super) fn native_block_entity_tick(&mut self, pos: [i32; 3], entity: &mut ModBlockEntity) {
+        #[cfg(target_os = "android")]
+        {
+            super::android_bundled::native_create_block_entity_tick(self, pos, entity);
+        }
         let _ = (pos, entity);
     }
     /// A consumable's effect of a mod's own kind: the item's `on_consume_effects`
@@ -1502,6 +1518,10 @@ impl Game<'_> {
         entity: &ModBlockEntity,
         tag: &mut Option<Compound>,
     ) {
+        #[cfg(target_os = "android")]
+        {
+            super::android_bundled::native_create_block_entity_update_tag(entity, tag);
+        }
         let _ = (pos, entity, tag);
     }
     /// Draw the mod block entity at `pos`, of block `block`
@@ -1922,6 +1942,10 @@ impl Game<'_> {
     /// chat box then completes them as vanilla's, within their level. A
     /// name vanilla has is left out. API 8.
     pub(super) fn native_register_commands(&mut self, commands: &mut Vec<NativeCommand>) {
+        #[cfg(target_os = "android")]
+        {
+            super::android_bundled::native_create_register_commands(self, commands);
+        }
         let _ = commands;
     }
     /// A player's command on the server (`Commands.performCommand`),
@@ -1935,6 +1959,10 @@ impl Game<'_> {
         command: &str,
         ran: &mut bool,
     ) {
+        #[cfg(target_os = "android")]
+        {
+            super::android_bundled::native_create_perform_command(self, player, command, ran);
+        }
         let _ = (player, command, ran);
     }
     /// A command a player typed (NeoForge's `CommandEvent`, before

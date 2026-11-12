@@ -414,7 +414,12 @@ pub(super) fn stage_pack(
     progress: &super::Progress,
 ) -> horizon_client::Result<StagedPack> {
     let root = startup_root(vanilla_root, selected, server)?;
-    let root = super::mods::content_root(&root, mods_enabled, dev_mods);
+    #[allow(unused_mut)]
+    let mut root = super::mods::content_root(&root, mods_enabled, dev_mods);
+    #[cfg(target_os = "android")]
+    {
+        root = super::android_bundled::create::create_port::asset_root(root);
+    }
     progress.set(1);
     // The world's models and sprites and the GUI atlas read the same root and nothing of
     // each other: about a second each, side by side.

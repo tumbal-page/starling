@@ -29,7 +29,7 @@ pub(super) fn original_assets() -> bool {
 
 /// Feed bundled content through Horizon's ordinary content loader, before it
 /// registers blocks or announces mods. The native mod uses the same enable flag.
-pub(super) fn prepare_content(enabled: &std::collections::BTreeSet<String>) {
+pub(crate) fn prepare_content(enabled: &std::collections::BTreeSet<String>) {
     if enabled.contains("create") {
         match super::assets::bundled_content(
             Game::game_dir(),
@@ -45,7 +45,7 @@ pub(super) fn prepare_content(enabled: &std::collections::BTreeSet<String>) {
 
 /// Imports the user's JAR before the initial load, and again on pack reload.
 /// Uses Horizon's own pack loader/cache; the installed content archive is untouched.
-pub(super) fn asset_root(root: std::path::PathBuf) -> std::path::PathBuf {
+pub(crate) fn asset_root(root: std::path::PathBuf) -> std::path::PathBuf {
     ORIGINAL_ASSETS.store(false, std::sync::atomic::Ordering::Relaxed);
     // Horizon consumes registry declarations while building the root; their
     // source data/*/horizon files are deliberately absent from that overlay.
@@ -142,7 +142,7 @@ pub(super) fn owns(block: &str) -> bool {
     )
 }
 
-pub(super) fn entity(block: &str, entity: &mut Option<(String, Compound)>) {
+pub(crate) fn entity(block: &str, entity: &mut Option<(String, Compound)>) {
     if owns(block) && block != "create:blaze_burner" && entity.is_none() {
         let id = match block {
             "create:creative_motor" => "create:motor",
@@ -161,7 +161,7 @@ pub(super) fn entity(block: &str, entity: &mut Option<(String, Compound)>) {
     }
 }
 
-pub(super) fn ticks(block: &str, ticks: &mut bool) {
+pub(crate) fn ticks(block: &str, ticks: &mut bool) {
     if owns(block) {
         *ticks = true;
     }
@@ -543,7 +543,7 @@ pub(super) fn node(game: &Game<'_>, pos: [i32; 3]) -> Option<Node> {
     })
 }
 
-pub(super) fn container(block: &str, container: &mut Option<ModContainer>) {
+pub(crate) fn container(block: &str, container: &mut Option<ModContainer>) {
     if !owns(block) {
         return;
     }
@@ -564,7 +564,7 @@ pub(super) fn container(block: &str, container: &mut Option<ModContainer>) {
     }); // create port stub: ModContainer::new not available on host
 }
 
-pub(super) fn update_tag(entity: &ModBlockEntity, tag: &mut Option<Compound>) {
+pub(crate) fn update_tag(entity: &ModBlockEntity, tag: &mut Option<Compound>) {
     if entity.id.starts_with("create:") {
         let mut t = entity.nbt.clone();
         if let Some(Tag::Compound(held)) = t.get_mut(&"HeldItem".into()) {
@@ -580,7 +580,7 @@ pub(super) fn update_tag(entity: &ModBlockEntity, tag: &mut Option<Compound>) {
     }
 }
 
-pub(super) fn tick(game: &mut Game<'_>, pos: [i32; 3], entity: &mut ModBlockEntity) {
+pub(crate) fn tick(game: &mut Game<'_>, pos: [i32; 3], entity: &mut ModBlockEntity) {
     if !entity.id.starts_with("create:") {
         return;
     }

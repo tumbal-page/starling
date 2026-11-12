@@ -21,7 +21,7 @@ use horizon_world::{
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, io::Read};
 
-pub(super) fn register(game: &Game<'_>, commands: &mut Vec<NativeCommand>) {
+pub(crate) fn register(game: &Game<'_>, commands: &mut Vec<NativeCommand>) {
     if game.native_on("create") {
         commands.push(NativeCommand::op(
             "create schematic inspect <filename:word>",
@@ -564,7 +564,7 @@ fn destination(game: &Game<'_>, plan: &Plan, origin: [i32; 3]) -> Result<Vec<Wri
     }
 }
 
-pub(super) fn command(
+pub(crate) fn command(
     game: &mut Game<'_>,
     player: &NativeServerPlayer,
     line: &str,
