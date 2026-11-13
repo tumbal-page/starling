@@ -1027,6 +1027,9 @@ impl<'a> Plan<'a> {
         if let Some(s) = &p.sounds {
             row.set("sound", self.sounds[s].clone());
         }
+        if let Some(shape) = p.render_shape {
+            row.set("render_shape", J::Str(shape.name().into()));
+        }
     }
 
     /// Adds each new block's copy of the template's entry to a map by name.

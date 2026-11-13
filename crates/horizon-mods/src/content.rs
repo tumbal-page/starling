@@ -86,14 +86,134 @@ pub struct BlockProperties {
     pub map_color: Option<u8>,
     /// A vanilla block whose sounds this block uses.
     pub sounds: Option<String>,
+    /// How the block is drawn, whatever the template does (`BlockBehaviour.getRenderShape`).
+    pub render_shape: Option<RenderShape>,
 }
 
-/// Per-state outline and collision boxes, selected by one state property.
+/// Vanilla's `RenderShape`, by its constant's name: `MODEL` puts the block model in the chunk
+/// mesh, `ENTITYBLOCK_ANIMATED` leaves it out for a block whose parts are drawn every frame
+/// (its block entity's drawing), and `INVISIBLE` draws nothing.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RenderShape {
+    Model,
+    EntityblockAnimated,
+    Invisible,
+}
+
+impl RenderShape {
+    /// The constant's name, as the block tables write it.
+    pub fn name(self) -> &'static str {
+        match self {
+            RenderShape::Model => "MODEL",
+            RenderShape::EntityblockAnimated => "ENTITYBLOCK_ANIMATED",
+            RenderShape::Invisible => "INVISIBLE",
+        }
+    }
+}
+
+/// Values selected by one state property or an ordered tuple of state properties.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
-pub struct BlockShapes {
+pub struct StateValues<T> {
+    #[serde(default)]
     pub property: String,
-    pub values: BTreeMap<String, Vec<[f64; 6]>>,
+    #[serde(default)]
+    pub properties: Vec<String>,
+    #[serde(default)]
+    pub values: BTreeMap<String, T>,
+    pub default: Option<T>,
+}
+
+/// Block-local boxes selected by state.
+pub type BlockShapes = StateValues<Vec<[f64; 6]>>;
+/// Light emitted by a state, as an integer from 0 to 15.
+pub type StateLight = StateValues<u8>;
+
+impl<T> StateValues<T> {
+    pub fn property_names(&self) -> Vec<&str> {
+        if self.property.is_empty() {
+            self.properties.iter().map(String::as_str).collect()
+        } else {
+            vec![self.property.as_str()]
+        }
+    }
+
+    fn check_selection(&self, label: &str) -> Result<(), String> {
+        let names = self.property_names();
+        if (!self.property.is_empty() && !self.properties.is_empty())
+            || names.iter().any(|name| !state_name(name))
+            || names.iter().collect::<BTreeSet<_>>().len() != names.len()
+            || (names.is_empty() && !self.values.is_empty())
+            || (self.values.is_empty() && self.default.is_none())
+        {
+            return Err(format!(
+                "{label} needs distinct properties and values, or a default"
+            ));
+        }
+        for key in self.values.keys() {
+            let values: Vec<_> = key.split(',').collect();
+            if values.len() != names.len() || values.iter().any(|value| !state_name(value)) {
+                return Err(format!(
+                    "invalid {label} key {key:?}: one value per property"
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl BlockShapes {
+    fn check(&self) -> Result<(), String> {
+        self.check_selection("shapes")?;
+        for boxes in self.values.values().chain(self.default.iter()) {
+            if boxes.len() > 16
+                || boxes.iter().any(|bounds| {
+                    bounds.iter().any(|value| !value.is_finite())
+                        || (0..3).any(|axis| bounds[axis] > bounds[axis + 3])
+                })
+            {
+                return Err("shape needs at most 16 finite boxes with ordered bounds".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+impl StateLight {
+    fn check(&self) -> Result<(), String> {
+        self.check_selection("state_light")?;
+        if self
+            .values
+            .values()
+            .chain(self.default.iter())
+            .any(|value| *value > 15)
+        {
+            return Err("state_light values are integers 0 to 15".into());
+        }
+        Ok(())
+    }
+}
+
+/// The querying entity class, captured by the real caller. Empty and position-only
+/// queries have no entity and always use the ordinary shape tables.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "lowercase")]
+pub enum ShapeEntityKind {
+    Item,
+    Player,
+    Living,
+    Other,
+}
+impl ShapeEntityKind {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Item => "item",
+            Self::Player => "player",
+            Self::Living => "living",
+            Self::Other => "other",
+        }
+    }
 }
 
 /// A state property a block declares on its own, beside its template's.
@@ -135,6 +255,16 @@ struct BlockFile {
     properties: BlockProperties,
     shapes: Option<BlockShapes>,
     #[serde(default)]
+    collision_shapes: Option<BlockShapes>,
+    #[serde(default)]
+    collision_context_shapes: BTreeMap<ShapeEntityKind, BlockShapes>,
+    #[serde(default)]
+    outline_context_shapes: BTreeMap<ShapeEntityKind, BlockShapes>,
+    #[serde(default)]
+    interaction_shapes: Option<BlockShapes>,
+    #[serde(default)]
+    state_light: Option<StateLight>,
+    #[serde(default)]
     state_properties: BTreeMap<String, StateProperty>,
     #[serde(default)]
     default_state: BTreeMap<String, String>,
@@ -161,6 +291,16 @@ pub struct Block {
     pub template: String,
     pub properties: BlockProperties,
     pub shapes: Option<BlockShapes>,
+    /// Collision boxes, selected by state or a single default.
+    pub collision_shapes: Option<BlockShapes>,
+    /// Per-entity collision boxes, keyed by entity kind (`player`, `item`, `living`, `other`).
+    pub collision_context_shapes: BTreeMap<ShapeEntityKind, BlockShapes>,
+    /// Per-entity outline boxes, keyed by entity kind (`player`, `item`, `living`, `other`).
+    pub outline_context_shapes: BTreeMap<ShapeEntityKind, BlockShapes>,
+    /// Ray-face override boxes, selected by state or a single default.
+    pub interaction_shapes: Option<BlockShapes>,
+    /// Per-state light emission, 0 to 15.
+    pub state_light: Option<StateLight>,
     /// State properties of its own, which its template does not have.
     pub state_properties: BTreeMap<String, StateProperty>,
     /// State properties overlaid on the template default.
@@ -216,6 +356,8 @@ struct ItemFile {
     #[serde(default)]
     components: BTreeMap<String, serde_json::Value>,
     crafting_remainder: Option<String>,
+    /// A block this item places when used (`BlockItem` binding).
+    pub place_block: Option<String>,
 }
 
 /// An item the mod adds: a vanilla template item's components under a new
@@ -232,6 +374,8 @@ pub struct Item {
     /// What it leaves in the crafting grid (`Item.Properties.craftRemainder`):
     /// a vanilla item or one of the mod's own.
     pub crafting_remainder: Option<String>,
+    /// A block this item places when used (`BlockItem` binding).
+    pub place_block: Option<String>,
 }
 
 /// `MobEffectCategory`.
@@ -523,6 +667,11 @@ impl Content {
                 template: file.template,
                 properties: file.properties,
                 shapes: file.shapes,
+                collision_shapes: file.collision_shapes,
+                collision_context_shapes: file.collision_context_shapes,
+                outline_context_shapes: file.outline_context_shapes,
+                interaction_shapes: file.interaction_shapes,
+                state_light: file.state_light,
                 state_properties: file.state_properties,
                 default_state: file.default_state,
                 item: file.item,
@@ -561,6 +710,7 @@ impl Content {
                 rarity: file.rarity,
                 components: file.components,
                 crafting_remainder: file.crafting_remainder,
+                place_block: file.place_block,
             });
         }
         for (effect, name) in effects {
@@ -690,19 +840,18 @@ fn check_block(file: &BlockFile) -> Result<(), String> {
             file.template
         ));
     }
-    if let Some(shapes) = &file.shapes {
-        if shapes.property.is_empty() || shapes.values.is_empty() {
-            return Err("shapes needs a property and values".into());
-        }
-        for boxes in shapes.values.values() {
-            if boxes.len() > 16
-                || boxes
-                    .iter()
-                    .any(|b| b.iter().any(|n| !n.is_finite()) || (0..3).any(|i| b[i] > b[i + 3]))
-            {
-                return Err("shape needs at most 16 finite boxes with ordered bounds".into());
-            }
-        }
+    for shapes in file
+        .shapes
+        .iter()
+        .chain(file.collision_shapes.iter())
+        .chain(file.outline_context_shapes.values())
+        .chain(file.collision_context_shapes.values())
+        .chain(file.interaction_shapes.iter())
+    {
+        shapes.check()?;
+    }
+    if let Some(light) = &file.state_light {
+        light.check()?;
     }
     for (name, property) in &file.state_properties {
         if !state_name(name) {
@@ -892,6 +1041,11 @@ capabilities = ["registries"]
                 },
                 item: true,
                 components: BTreeMap::new(),
+                collision_shapes: None,
+                collision_context_shapes: BTreeMap::new(),
+                outline_context_shapes: BTreeMap::new(),
+                interaction_shapes: None,
+                state_light: None,
                 connects_to: None,
                 thickness: None,
             }]
@@ -1456,4 +1610,59 @@ capabilities = ["registries"]
             assert!(check_path(bad).is_err(), "{bad}");
         }
     }
+
+    /// Create's content.json uses render_shape, collision_context_shapes,
+    /// outline_context_shapes, interaction_shapes, state_light, default-only
+    /// shapes, and item place_block — all must load without unknown-field errors.
+    #[test]
+    fn create_content_format_loads() {
+        let render_shape_block = br#"{"template": "minecraft:glass",
+            "properties": {"render_shape": "ENTITYBLOCK_ANIMATED"}}"#;
+        let collision_shapes_block = br#"{"template": "minecraft:glass",
+            "collision_shapes": {"default": [[0, 0, 0, 1, 0.25, 1]]}}"#;
+        let collision_context_block = br#"{"template": "minecraft:glass",
+            "collision_context_shapes": {"player": {"default": [[0, 0, 0, 1, 1, 1]]}}}"#;
+        let outline_context_block = br#"{"template": "minecraft:glass",
+            "outline_context_shapes": {"player": {"default": [[0, 0, 0, 1, 1, 1]]}}}"#;
+        let interaction_shapes_block = br#"{"template": "minecraft:glass",
+            "interaction_shapes": {"default": [[0, 0, 0, 1, 1, 1]]}}"#;
+        let state_light_block = br#"{"template": "minecraft:glass",
+            "state_light": {"property": "blaze", "values": {"none": 0, "smouldering": 8}}}"#;
+        let default_shapes_block = br#"{"template": "minecraft:glass",
+            "shapes": {"default": [[0, 0, 0, 1, 1, 1]]}}"#;
+        let place_block_item = br#"{"template": "minecraft:iron_ingot",
+            "place_block": "create:blaze_burner"}"#;
+        let files: &[(&str, &[u8])] = &[
+            ("data/ruby/horizon/block/render_shape.json", render_shape_block),
+            ("data/ruby/horizon/block/collision_shapes.json", collision_shapes_block),
+            ("data/ruby/horizon/block/collision_context.json", collision_context_block),
+            ("data/ruby/horizon/block/outline_context.json", outline_context_block),
+            ("data/ruby/horizon/block/interaction_shapes.json", interaction_shapes_block),
+            ("data/ruby/horizon/block/state_light.json", state_light_block),
+            ("data/ruby/horizon/block/default_shapes.json", default_shapes_block),
+            ("data/ruby/horizon/item/place_block.json", place_block_item),
+        ];
+        let content = hmod("create_format", MANIFEST_TEXT, files).unwrap();
+        assert_eq!(content.blocks.len(), 7);
+        assert_eq!(content.items.len(), 1);
+        // Files are sorted: collision_context, collision_shapes, default_shapes,
+        // interaction_shapes, outline_context, render_shape, state_light.
+        assert!(content.blocks[0].collision_context_shapes.len() == 1);
+        assert!(content.blocks[1].collision_shapes.is_some());
+        assert!(content.blocks[2].shapes.is_some());
+        assert!(content.blocks[3].interaction_shapes.is_some());
+        assert!(content.blocks[4].outline_context_shapes.len() == 1);
+        assert_eq!(content.blocks[5].properties.render_shape, Some(RenderShape::EntityblockAnimated));
+        assert!(content.blocks[6].state_light.is_some());
+        assert_eq!(content.items[0].place_block.as_deref(), Some("create:blaze_burner"));
+    }
+
+    /// Serde SCREAMING_SNAKE_CASE must map ENTITYBLOCK_ANIMATED to EntityblockAnimated.
+    #[test]
+    fn render_shape_matches_create_json() {
+        let v: RenderShape = serde_json::from_str(r#""ENTITYBLOCK_ANIMATED""#).unwrap();
+        assert_eq!(v, RenderShape::EntityblockAnimated);
+    }
+
+
 }
