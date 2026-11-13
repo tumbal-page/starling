@@ -87,6 +87,12 @@ pub fn bundled_content(game_dir: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
         .create(true)
         .truncate(false)
         .open(cache.join(".content.lock"))?;
+    // Rust 1.94's standard library returns Unsupported on Android without
+    // issuing a syscall (rust-lang/rust#148325). Keep the same blocking
+    // exclusive flock semantics through rustix rather than dropping the lock.
+    #[cfg(target_os = "android")]
+    rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)?;
+    #[cfg(not(target_os = "android"))]
     lock.lock()?;
     if !valid() {
         let stage = Stage::new(&mods)?;
@@ -194,6 +200,12 @@ fn import(jar: &Path, cache: &Path, format: (i64, i64), expected: &str) -> io::R
         .create(true)
         .truncate(false)
         .open(cache.join(".import.lock"))?;
+    // Rust 1.94's standard library returns Unsupported on Android without
+    // issuing a syscall (rust-lang/rust#148325). Keep the same blocking
+    // exclusive flock semantics through rustix rather than dropping the lock.
+    #[cfg(target_os = "android")]
+    rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)?;
+    #[cfg(not(target_os = "android"))]
     lock.lock()?;
     if let Some(files) = valid_cache(&target, &hash, format) {
         return Ok(Imported {
